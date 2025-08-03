@@ -1,8 +1,8 @@
-from colorama import init, Fore, style
+from colorama import init, Fore, Style
 from rich.console import Console
 from rich.table import Table
 
-colorama_init(autoreset=True)
+init(autoreset=True)
 console = Console()
 
 known_peers = {}
@@ -30,7 +30,8 @@ def cmd_exit(_args):
 
 
 def cmd_whoami(_args):
-    print_info(f"Username: {my_info['username']}")
+    print_info(f"I am '{my_info['username']}' on '{my_info['hostname']}'")
+    return True
 
 
 def cmd_peers(_args):
@@ -39,9 +40,9 @@ def cmd_peers(_args):
         return True
 
     table = Table(title="Known Peers")
-    table.add_column("Username", style="cyan")
-    table.add_column("Hostname", style="magenta")
-    table.add_column("Address", style="green")
+    table.add_column("Username", Style="cyan")
+    table.add_column("Hostname", Style="magenta")
+    table.add_column("Address", Style="green")
 
     for (ip, port), peer in known_peers.items():
         table.add_row(
@@ -61,37 +62,36 @@ def cmd_groups(args):
     return True
 
 
-command_registry = {
-    "exit": cmd_exit,
-    "whoami": cmd_whoami,
-    "peers": cmd_peers,
-    "send": cmd_send,
-    "groups": cmd_groups,
-}
-
-
-def handle_command(command_line):
-    parts = command_line.strip().split()
-    if not parts:
-        return True
-
-    command = parts[0]
-    args = parts[1:]
-
-    handler = command_registry.get(command)
-    if handler:
-        return handler(args)
-    else:
-        print_error(f"Unknown command: '{command}'")
-        return True
+def cmd_help(_args):
+    print_info("Available commands:")
+    for cmd in command_registry:
+        print(f" - {cmd}")
 
 
 def update_peer(addr, username, hostname):
     known_peers[addr] = {"username": username, "hostname": hostname}
 
 
-def start_cli():
+def start_cli(info):
+    global my_info
+    my_info = info
     print_info("CLI started. Type 'help' for commands.")
+
+    def cmd_whoami(_args):
+        print_info(f"Username: {my_info['username']}")
+
+    def handle_command(command_line):
+        parts = command_line.strip().split()
+        if not parts:
+            return False
+        command = parts[0]
+        args = parts[1:]
+        handler = command_registry.get(command)
+        if handler:
+            return handler(args)
+        else:
+            print_error(f"Unknown command: {command}")
+            return False
 
     while True:
         print_prompt()
@@ -100,6 +100,15 @@ def start_cli():
         except KeyboardInterrupt:
             print_error("\nInterrupted.")
             break
-
         if not handle_command(command_line):
             break
+
+
+command_registry = {
+    "exit": cmd_exit,
+    "whoami": cmd_whoami,
+    "peers": cmd_peers,
+    "send": cmd_send,
+    "groups": cmd_groups,
+    "help": cmd_help,
+}
