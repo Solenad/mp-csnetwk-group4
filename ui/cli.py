@@ -1,37 +1,24 @@
-from colorama import init, Fore, Style
 from rich.console import Console
 from rich.table import Table
+from rich.style import Style
+from network.message_sender import send_post, send_dm, send_follow
+from network.broadcast import send_hello, my_info
+from ui.utils import print_info, print_error, print_prompt, print_success
 
-init(autoreset=True)
 console = Console()
+verbose_mode = False  # Default to non-verbose mode
 
 known_peers = {}
-
-
-def print_success(msg):
-    print(Fore.GREEN + msg)
-
-
-def print_error(msg):
-    print(Fore.RED + "Error: " + msg)
-
-
-def print_info(msg):
-    print(Fore.CYAN + msg)
-
-
-def print_prompt():
-    print(Fore.YELLOW + ">>", end="")
-
-
-def cmd_exit(_args):
-    print_success("Exiting...")
-    return False
 
 
 def cmd_whoami(_args):
     print_info(f"I am '{my_info['username']}' on '{my_info['hostname']}'")
     return True
+
+
+def cmd_exit(_args):
+    print_success("Exiting...")
+    return False
 
 
 def cmd_peers(_args):
@@ -40,9 +27,9 @@ def cmd_peers(_args):
         return True
 
     table = Table(title="Known Peers")
-    table.add_column("Username", Style="cyan")
-    table.add_column("Hostname", Style="magenta")
-    table.add_column("Address", Style="green")
+    table.add_column("Username", style="cyan")
+    table.add_column("Hostname", style="magenta")
+    table.add_column("Address", style="green")
 
     for (ip, port), peer in known_peers.items():
         table.add_row(
@@ -53,7 +40,42 @@ def cmd_peers(_args):
 
 
 def cmd_send(args):
-    print_info("Send not implemented yet.")
+    if not args:
+        print_error("Usage: send <post|dm|follow|hello> [arguments]")
+        return True
+
+    subcommand = args[0]
+    subargs = args[1:]
+
+    if subcommand == "post":
+        if not subargs:
+            print_error("Usage: send post <message>")
+        else:
+            message = " ".join(subargs)
+            send_post(message, my_info)
+            print_success("Post sent successfully")
+    elif subcommand == "dm":
+        if len(subargs) < 2:
+            print_error("Usage: send dm <username> <message>")
+        else:
+            recipient = subargs[0]
+            message = " ".join(subargs[1:])
+            send_dm(recipient, message, my_info)
+            print_success(f"DM sent to {recipient}")
+    elif subcommand == "follow":
+        if not subargs:
+            print_error("Usage: send follow <username>")
+        else:
+            send_follow(subargs[0], my_info)
+            print_success(f"Follow request sent to {subargs[0]}")
+    elif subcommand == "hello":
+        if subargs:
+            print_error("Usage: send hello (no arguments needed)")
+        else:
+            send_hello(my_info)
+            print_success("Profile broadcast sent to network")
+    else:
+        print_error("Unknown subcommand for send. Available: post, dm, follow, hello")
     return True
 
 
@@ -64,12 +86,44 @@ def cmd_groups(args):
 
 def cmd_help(_args):
     print_info("Available commands:")
-    for cmd in command_registry:
+    commands = [
+        "exit - Exit the application",
+        "whoami - Show your user information",
+        "peers - List known peers",
+        "send <post|dm|follow|hello> [arguments] - Send messages",
+        "groups - Group management (not implemented)",
+        "help - Show this help message",
+        "verbose <on|off> - Toggle verbose mode",
+    ]
+    for cmd in commands:
         print(f" - {cmd}")
+    return True
+
+
+def cmd_verbose(args):
+    global verbose_mode
+    if not args or args[0] not in ["on", "off"]:
+        print_info(
+            f"Verbose mode is currently {
+                   'on' if verbose_mode else 'off'}"
+        )
+    else:
+        verbose_mode = args[0] == "on"
+        print_success(
+            f"Verbose mode {
+                      'enabled' if verbose_mode else 'disabled'}"
+        )
+    return True
+
+
+def print_verbose(msg):
+    if verbose_mode:
+        print_info(f"[VERBOSE] {msg}")
 
 
 def update_peer(addr, username, hostname):
     known_peers[addr] = {"username": username, "hostname": hostname}
+    print_verbose(f"Updated peer: {username}@{addr[0]}:{addr[1]}")
 
 
 def start_cli(info):
@@ -77,13 +131,10 @@ def start_cli(info):
     my_info = info
     print_info("CLI started. Type 'help' for commands.")
 
-    def cmd_whoami(_args):
-        print_info(f"Username: {my_info['username']}")
-
     def handle_command(command_line):
         parts = command_line.strip().split()
         if not parts:
-            return False
+            return True
         command = parts[0]
         args = parts[1:]
         handler = command_registry.get(command)
@@ -91,7 +142,7 @@ def start_cli(info):
             return handler(args)
         else:
             print_error(f"Unknown command: {command}")
-            return False
+            return True
 
     while True:
         print_prompt()
@@ -111,4 +162,5 @@ command_registry = {
     "send": cmd_send,
     "groups": cmd_groups,
     "help": cmd_help,
+    "verbose": cmd_verbose,
 }
