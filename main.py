@@ -49,20 +49,18 @@ def periodic_broadcast():
 
 
 if __name__ == "__main__":
-    # Initialize network
     sock, port = start_listening(handle_message)
     if not sock:
         exit(1)
 
-    my_info["port"] = port
-    my_info["user_id"] = (
-        f"{my_info['username']
-           }@{socket.gethostbyname(socket.gethostname())}"
-    )
+    my_info["port"] = port  # Store the actual port being used
 
-    # Start periodic broadcasting in background
+    def periodic_broadcast():
+        while True:
+            send_profile(my_info)  # Pass the actual port
+            time.sleep(300)
+
     broadcast_thread = threading.Thread(target=periodic_broadcast, daemon=True)
     broadcast_thread.start()
 
-    # Start CLI
     start_cli(my_info)

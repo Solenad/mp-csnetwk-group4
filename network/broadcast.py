@@ -64,11 +64,12 @@ def get_mime_type(filepath):
     }.get(ext, "application/octet-stream")
 
 
-def send_broadcast(message):
+def send_broadcast(message, port=None):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            sock.sendto(message.encode("utf-8"), ("255.255.255.255", 50999))
+            target_port = port or 50999  # Default to standard port if none specified
+            sock.sendto(message.encode("utf-8"), ("255.255.255.255", target_port))
     except Exception as e:
         print(f"Broadcast failed: {e}")
 
