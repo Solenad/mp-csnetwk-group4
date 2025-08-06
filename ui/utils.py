@@ -17,3 +17,6 @@ def print_info(msg):
 
 def print_prompt():
     print(Fore.YELLOW + ">>", end="")
+
+def print_verbose(message):
+    print(f"[VERBOSE] {message}")

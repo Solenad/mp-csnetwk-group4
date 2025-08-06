@@ -11,8 +11,7 @@ def send_message_to_peers(message, sender_info):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     for peer in get_peer_list():
         print_verbose(
-            f"Sending message to {
-                      peer['username']}@{peer['address'][0]}:{peer['address'][1]}"
+            f"Sending message to {peer['username']}@{peer['address'][0]}:{peer['address'][1]}"
         )
         sock.sendto(message.encode(), peer["address"])
     sock.close()

@@ -19,8 +19,7 @@ def send_hello(my_info):
                 file_size = os.path.getsize(avatar_path)
                 if file_size > 20 * 1024:  # 20KB limit
                     print(
-                        f"[Warning] Avatar too large ({
-                            file_size} bytes), skipping"
+                        f"[Warning] Avatar too large ({file_size} bytes), skipping"
                     )
                 else:
                     ext = os.path.splitext(avatar_path)[1].lower()
@@ -41,8 +40,7 @@ def send_hello(my_info):
                         f"AVATAR_DATA: {avatar_data}\n"
                     )
                     print(
-                        f"[Debug] Included avatar ({
-                            avatar_type}, {file_size} bytes)"
+                        f"[Debug] Included avatar ({avatar_type}, {file_size} bytes)"
                     )
             else:
                 print(f"[Warning] Avatar file not found: {avatar_path}")

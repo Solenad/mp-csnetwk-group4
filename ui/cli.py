@@ -104,14 +104,12 @@ def cmd_verbose(args):
     global verbose_mode
     if not args or args[0] not in ["on", "off"]:
         print_info(
-            f"Verbose mode is currently {
-                   'on' if verbose_mode else 'off'}"
+            f"Verbose mode is currently {'on' if verbose_mode else 'off'}"
         )
     else:
         verbose_mode = args[0] == "on"
         print_success(
-            f"Verbose mode {
-                      'enabled' if verbose_mode else 'disabled'}"
+            f"Verbose mode {'enabled' if verbose_mode else 'disabled'}"
         )
     return True
 

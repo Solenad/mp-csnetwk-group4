@@ -35,22 +35,19 @@ def handle_message(message, addr):
 
         if msg_type == "POST":
             print(
-                f"\n[New Post] From {content['USER_ID']}: {
-                    content['CONTENT']}\n>> ",
+                f"\n[New Post] From {content['USER_ID']}: {content['CONTENT']}\n>> ",
                 end="",
                 flush=True,
             )
         elif msg_type == "DM":
             print(
-                f"\n[New DM] From {content['FROM']}: {
-                    content['CONTENT']}\n>> ",
+                f"\n[New DM] From {content['FROM']}: {content['CONTENT']}\n>> ",
                 end="",
                 flush=True,
             )
         elif msg_type == "FOLLOW":
             print(
-                f"\n[New Follower] {content['FROM']
-                                    } followed you\n>> ",
+                f"\n[New Follower] {content['FROM']} followed you\n>> ",
                 end="",
                 flush=True,
             )
