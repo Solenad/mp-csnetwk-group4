@@ -4,10 +4,10 @@ from network.message_sender import send_post, send_dm, send_follow
 from network.broadcast import my_info, send_profile
 from ui.utils import print_info, print_error, print_prompt, print_success
 from config import verbose_mode
+from network.peer_registry import get_peer_list
+import time
 
 console = Console()
-
-known_peers = {}
 
 
 def cmd_whoami(_args):
@@ -21,18 +21,24 @@ def cmd_exit(_args):
 
 
 def cmd_peers(_args):
-    if not known_peers:
+    peers = get_peer_list()
+    if not peers:
         print_info("No peers known yet.")
         return True
 
     table = Table(title="Known Peers")
-    table.add_column("Username", style="cyan")
-    table.add_column("Hostname", style="magenta")
-    table.add_column("Address", style="green")
+    table.add_column("User ID", style="cyan")
+    table.add_column("Display Name", style="magenta")
+    table.add_column("IP:Port", style="green")
+    table.add_column("Last Seen", style="yellow")
 
-    for (ip, port), peer in known_peers.items():
+    for peer in peers:
+        last_seen = time.strftime("%H:%M:%S", time.localtime(peer["last_seen"]))
         table.add_row(
-            peer.get("username", "?"), peer.get("hostname", "?"), f"{ip}:{port}"
+            peer.get("user_id", "?"),
+            peer.get("display_name", "?"),
+            f"{peer['ip']}:{peer['port']}",
+            last_seen,
         )
     console.print(table)
     return True
@@ -118,11 +124,6 @@ def cmd_verbose(args):
 def print_verbose(msg):
     if verbose_mode:
         print_info(f"[VERBOSE] {msg}")
-
-
-def update_peer(addr, username, hostname):
-    known_peers[addr] = {"username": username, "hostname": hostname}
-    print_verbose(f"Updated peer: {username}@{addr[0]}:{addr[1]}")
 
 
 def start_cli(info):

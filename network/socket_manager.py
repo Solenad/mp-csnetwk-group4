@@ -16,6 +16,7 @@ def start_listening(callback):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             sock.bind(("", port))
             print(f"Listening on UDP port {port}")
             break
@@ -26,7 +27,7 @@ def start_listening(callback):
             if attempt == MAX_PORT_ATTEMPTS - 1:
                 print(
                     f"Error: Could not find available port after {
-                      MAX_PORT_ATTEMPTS} attempts"
+                        MAX_PORT_ATTEMPTS} attempts"
                 )
                 return None, None
 

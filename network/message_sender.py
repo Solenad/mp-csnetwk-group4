@@ -1,7 +1,9 @@
 import socket
+from typing import Dict
 import time
 import secrets
 from ui.utils import print_error, print_verbose
+from network.peer_registry import get_peer
 
 DEFAULT_TTL = 3600  # 1 hour default TTL per RFC
 
@@ -31,25 +33,32 @@ def send_post(content, sender_info):
     send_broadcast(message)
 
 
-def send_dm(recipient_username, content, sender_info, peers):
+# message_sender.py
+def send_dm(recipient_id: str, content: str, sender_info: Dict) -> None:
+    """Send direct message to a peer"""
+    peer = get_peer(recipient_id)
+    if not peer:
+        print_error(f"Peer {recipient_id} not found")
+        return
+
     timestamp = int(time.time())
-    for peer in peers.values():
-        if peer.get("username") == recipient_username:
-            message = (
-                "TYPE: DM\n"
-                f"FROM: {sender_info['user_id']}\n"
-                f"TO: {peer['user_id']}\n"
-                f"CONTENT: {content}\n"
-                f"TIMESTAMP: {timestamp}\n"
-                f"MESSAGE_ID: {secrets.token_hex(4)}\n"
-                f"TOKEN: {sender_info['user_id']}|{
-                    timestamp + DEFAULT_TTL}|chat\n"
-                "\n"
-            )
-            if send_unicast(message, (peer["ip"], 50999)):
-                print_verbose(f"DM sent to {recipient_username}")
-            return
-    print_error(f"Recipient {recipient_username} not found")
+    message = (
+        "TYPE: DM\n"
+        f"FROM: {sender_info['user_id']}\n"
+        f"TO: {recipient_id}\n"
+        f"CONTENT: {content}\n"
+        f"TIMESTAMP: {timestamp}\n"
+        f"MESSAGE_ID: {secrets.token_hex(4)}\n"
+        f"TOKEN: {sender_info['user_id']}|{timestamp + DEFAULT_TTL}|chat\n"
+        "\n"
+    )
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.sendto(message.encode(), (peer["ip"], peer["port"]))
+            print_verbose(f"Sent DM to {recipient_id}")
+    except Exception as e:
+        print_error(f"Failed to send DM: {e}")
 
 
 def send_follow(username_to_follow, sender_info, peers):
