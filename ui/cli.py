@@ -1,12 +1,11 @@
 from rich.console import Console
 from rich.table import Table
-from rich.style import Style
 from network.message_sender import send_post, send_dm, send_follow
-from network.broadcast import send_hello, my_info
+from network.broadcast import my_info, send_profile
 from ui.utils import print_info, print_error, print_prompt, print_success
+from config import verbose_mode
 
 console = Console()
-verbose_mode = False  # Default to non-verbose mode
 
 known_peers = {}
 
@@ -72,7 +71,7 @@ def cmd_send(args):
         if subargs:
             print_error("Usage: send hello (no arguments needed)")
         else:
-            send_hello(my_info)
+            send_profile(my_info)
             print_success("Profile broadcast sent to network")
     else:
         print_error("Unknown subcommand for send. Available: post, dm, follow, hello")
@@ -104,12 +103,14 @@ def cmd_verbose(args):
     global verbose_mode
     if not args or args[0] not in ["on", "off"]:
         print_info(
-            f"Verbose mode is currently {'on' if verbose_mode else 'off'}"
+            f"Verbose mode is currently {
+                'on' if verbose_mode else 'off'}"
         )
     else:
         verbose_mode = args[0] == "on"
         print_success(
-            f"Verbose mode {'enabled' if verbose_mode else 'disabled'}"
+            f"Verbose mode {
+                'enabled' if verbose_mode else 'disabled'}"
         )
     return True
 

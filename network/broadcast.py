@@ -1,57 +1,9 @@
+# broadcast.py
 import socket
 import base64
 import os
-
-
-def send_hello(my_info):
-    message = (
-        "LSNP/1.0\n"
-        "TYPE: PROFILE\n"
-        f"USER_ID: {my_info['username']}@{get_local_ip()}\n"
-        f"DISPLAY_NAME: {my_info['username']}\n"
-        f"STATUS: {my_info.get('status', 'Active')}\n"
-    )
-
-    if "avatar_path" in my_info:
-        avatar_path = my_info["avatar_path"]
-        try:
-            if os.path.isfile(avatar_path):
-                file_size = os.path.getsize(avatar_path)
-                if file_size > 20 * 1024:  # 20KB limit
-                    print(
-                        f"[Warning] Avatar too large ({file_size} bytes), skipping"
-                    )
-                else:
-                    ext = os.path.splitext(avatar_path)[1].lower()
-                    mime_types = {
-                        ".png": "image/png",
-                        ".jpg": "image/jpeg",
-                        ".jpeg": "image/jpeg",
-                        ".gif": "image/gif",
-                    }
-                    avatar_type = mime_types.get(ext, "application/octet-stream")
-
-                    with open(avatar_path, "rb") as f:
-                        avatar_data = base64.b64encode(f.read()).decode("utf-8")
-
-                    message += (
-                        f"AVATAR_TYPE: {avatar_type}\n"
-                        "AVATAR_ENCODING: base64\n"
-                        f"AVATAR_DATA: {avatar_data}\n"
-                    )
-                    print(
-                        f"[Debug] Included avatar ({avatar_type}, {file_size} bytes)"
-                    )
-            else:
-                print(f"[Warning] Avatar file not found: {avatar_path}")
-        except Exception as e:
-            print(f"[Error] Failed to process avatar: {str(e)}")
-
-    message += "\n"
-
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        sock.sendto(message.encode(), ("255.255.255.255", my_info["port"]))
+import time
+from datetime import datetime
 
 
 def get_local_ip():
@@ -65,16 +17,66 @@ def get_local_ip():
         return "127.0.0.1"
 
 
-def print_profile_non_verbose(profile_data):
-    print(f"{profile_data['DISPLAY_NAME']}: {profile_data['STATUS']}")
-    if "AVATAR_DATA" in profile_data:
-        print("[Profile picture available]")
+def send_ping(my_info):
+    """Send PING message as per RFC"""
+    message = (
+        "TYPE: PING\n"
+        f"USER_ID: {my_info['user_id']}\n"
+        "\n"  # Double newline terminator
+    )
+    send_broadcast(message)
+
+
+def send_profile(my_info):
+    """Send PROFILE message as per RFC"""
+    message = (
+        "TYPE: PROFILE\n"
+        f"USER_ID: {my_info['user_id']}\n"
+        f"DISPLAY_NAME: {my_info['username']}\n"
+        f"STATUS: {my_info.get('status', 'Active')}\n"
+    )
+
+    # Optional avatar handling - only if path exists and is valid
+    avatar_path = my_info.get("avatar_path")
+    if avatar_path and os.path.exists(avatar_path):
+        try:
+            with open(avatar_path, "rb") as f:
+                avatar_data = base64.b64encode(f.read()).decode("utf-8")
+                message += (
+                    f"AVATAR_TYPE: {get_mime_type(avatar_path)}\n"
+                    "AVATAR_ENCODING: base64\n"
+                    f"AVATAR_DATA: {avatar_data}\n"
+                )
+        except Exception as e:
+            print(f"Failed to include avatar: {e}")
+
+    message += "\n"  # Double newline terminator
+    send_broadcast(message)
+
+
+def get_mime_type(filepath):
+    ext = os.path.splitext(filepath)[1].lower()
+    return {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+    }.get(ext, "application/octet-stream")
+
+
+def send_broadcast(message):
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            sock.sendto(message.encode("utf-8"), ("255.255.255.255", 50999))
+    except Exception as e:
+        print(f"Broadcast failed: {e}")
 
 
 my_info = {
-    "username": "Admin",
+    "username": "User" + str(int(time.time()) % 1000),
     "hostname": socket.gethostname(),
-    "port": 2425,
-    "user_id": f"Admin{get_local_ip()}",
-    "avatar_path": "sample.png",
+    "user_id": f"User{int(time.time()) % 1000}@{get_local_ip()}",
+    "status": "Available",
+    # Removed avatar_path since it's optional
 }

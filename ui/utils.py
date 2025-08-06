@@ -1,4 +1,5 @@
 from colorama import init, Fore
+from config import verbose_mode
 
 init(autoreset=True)
 
@@ -18,5 +19,7 @@ def print_info(msg):
 def print_prompt():
     print(Fore.YELLOW + ">>", end="")
 
+
 def print_verbose(message):
-    print(f"[VERBOSE] {message}")
+    if verbose_mode:
+        print(f"[VERBOSE] {message}")
