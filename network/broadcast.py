@@ -3,7 +3,8 @@ import socket
 import base64
 import os
 import time
-from datetime import datetime
+from typing import Dict
+from config import verbose_mode
 
 
 def get_local_ip():
@@ -27,16 +28,18 @@ def send_ping(my_info):
     send_broadcast(message)
 
 
-def send_profile(my_info):
-    """Send PROFILE message as per RFC"""
+# broadcast.py (updated send_profile function)
+def send_profile(my_info: Dict) -> None:
+    """Send PROFILE message with current port (RFC Section 5.1)"""
     message = (
         "TYPE: PROFILE\n"
         f"USER_ID: {my_info['user_id']}\n"
         f"DISPLAY_NAME: {my_info['username']}\n"
         f"STATUS: {my_info.get('status', 'Active')}\n"
+        f"PORT: {my_info.get('port', 50999)}\n"
     )
 
-    # Optional avatar handling - only if path exists and is valid
+    # Optional avatar handling
     avatar_path = my_info.get("avatar_path")
     if avatar_path and os.path.exists(avatar_path):
         try:
@@ -48,10 +51,13 @@ def send_profile(my_info):
                     f"AVATAR_DATA: {avatar_data}\n"
                 )
         except Exception as e:
-            print(f"Failed to include avatar: {e}")
+            if verbose_mode:
+                print(f"Failed to include avatar: {e}")
 
-    message += "\n"  # Double newline terminator
-    send_broadcast(message)
+    message += "\n"  # Double newline terminator per RFC
+
+    # Send to both default ports per RFC
+    send_broadcast(message, [50999, 51000])
 
 
 def get_mime_type(filepath):

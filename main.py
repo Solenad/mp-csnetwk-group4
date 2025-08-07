@@ -1,16 +1,17 @@
+# main.py
 from network.socket_manager import start_listening
 from network.broadcast import send_profile, my_info
 from ui.cli import start_cli
 from network.peer_registry import add_peer, update_last_seen
 import threading
+import socket
 import time
-from config import verbose_mode  # Import verbose_mode from config
+from config import verbose_mode
 
 
 def handle_message(message: str, addr: tuple) -> None:
     try:
         lines = [line.strip() for line in message.split("\n") if line.strip()]
-        # This is your message dictionary (renamed from msg_dict for clarity)
         content = {}
         for line in lines:
             if ":" in line:
@@ -18,48 +19,41 @@ def handle_message(message: str, addr: tuple) -> None:
                 content[key.strip()] = value.strip()
 
         msg_type = content.get("TYPE")
-        if not msg_type:
+        user_id = content.get("USER_ID") or content.get("FROM")
+        if not msg_type or not user_id:
             return
 
-        user_id = content.get("USER_ID")
-        if not user_id:
+        # Skip our own messages
+        if user_id == my_info["user_id"]:
             return
 
-        # Update peer information
-        if msg_type == "PROFILE":
-            add_peer(
-                user_id=user_id,
-                ip=addr[0],
-                port=int(content.get("PORT", 50999)),
-                display_name=content.get("DISPLAY_NAME"),
-            )
-        else:
-            update_last_seen(user_id)
+        # Add/update peer for any message type (RFC Section 6: User Discovery)
+        add_peer(
+            user_id=user_id,
+            ip=addr[0],
+            port=int(content.get("PORT", my_info.get("port", 50999))),
+            display_name=content.get("DISPLAY_NAME", user_id.split("@")[0]),
+        )
+        update_last_seen(user_id)
 
-        # Handle message types using 'content' instead of 'msg_dict'
         if msg_type == "POST":
             print(
-                f"\n[New Post] {content.get('USER_ID')}: {
-                    content.get('CONTENT')}"
+                f"\n[New Post] {content.get('DISPLAY_NAME', user_id)}: {
+                    content.get('CONTENT', '')}\n>> ",
+                end="",
+                flush=True,
             )
-        elif msg_type == "DM":
-            if content.get("FROM") and content.get("CONTENT"):
-                print(f"\n[DM from {content['FROM']}]: {content['CONTENT']}")
+        elif msg_type == "DM" and content.get("FROM") and content.get("CONTENT"):
+            print(f"\n[DM from {content['FROM']}]: {content['CONTENT']}")
         elif msg_type == "FOLLOW":
             print(f"\n{content.get('FROM')} followed you!")
         elif msg_type == "PING":
-            pass  # Silent handling of PINGs
+            # Send our profile in response to PING (RFC Section 6)
+            send_profile(my_info)
 
     except Exception as e:
         if verbose_mode:
             print(f"[VERBOSE] Error processing message: {e}")
-
-
-def periodic_broadcast():
-    """Send periodic broadcasts for peer discovery"""
-    while True:
-        send_profile(my_info)
-        time.sleep(300)  # Every 5 minutes
 
 
 if __name__ == "__main__":
@@ -67,9 +61,14 @@ if __name__ == "__main__":
     if not sock:
         exit(1)
 
-    my_info["port"] = port  # Store the actual port being used
+    my_info.update(
+        {
+            "port": port,
+            "user_id": f"{my_info['username']}@{socket.gethostbyname(socket.gethostname())}",
+        }
+    )
 
-    broadcast_thread = threading.Thread(target=periodic_broadcast, daemon=True)
-    broadcast_thread.start()
-
+    threading.Thread(
+        target=lambda: [send_profile(my_info), time.sleep(300)], daemon=True
+    ).start()
     start_cli(my_info)

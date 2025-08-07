@@ -1,10 +1,11 @@
 from rich.console import Console
 from rich.table import Table
+from network import my_info
 from network.message_sender import send_post, send_dm, send_follow
-from network.broadcast import my_info, send_profile
+from network.broadcast import send_profile
+from network.peer_registry import get_peer_list
 from ui.utils import print_info, print_error, print_prompt, print_success
 from config import verbose_mode
-from network.peer_registry import get_peer_list
 import time
 
 console = Console()
@@ -21,7 +22,7 @@ def cmd_exit(_args):
 
 
 def cmd_peers(_args):
-    peers = get_peer_list()
+    peers = get_peer_list(exclude_user_id=my_info.get("user_id"))
     if not peers:
         print_info("No peers known yet.")
         return True
@@ -29,14 +30,14 @@ def cmd_peers(_args):
     table = Table(title="Known Peers")
     table.add_column("User ID", style="cyan")
     table.add_column("Display Name", style="magenta")
-    table.add_column("IP:Port", style="green")
+    table.add_column("Address", style="green")
     table.add_column("Last Seen", style="yellow")
 
     for peer in peers:
         last_seen = time.strftime("%H:%M:%S", time.localtime(peer["last_seen"]))
         table.add_row(
-            peer.get("user_id", "?"),
-            peer.get("display_name", "?"),
+            peer["user_id"],
+            peer["display_name"],
             f"{peer['ip']}:{peer['port']}",
             last_seen,
         )
@@ -65,8 +66,8 @@ def cmd_send(args):
         else:
             recipient = subargs[0]
             message = " ".join(subargs[1:])
-            send_dm(recipient, message, my_info)
-            print_success(f"DM sent to {recipient}")
+            if send_dm(recipient, message, my_info):
+                print_success(f"DM sent to {recipient}")
     elif subcommand == "follow":
         if not subargs:
             print_error("Usage: send follow <username>")
@@ -131,27 +132,24 @@ def start_cli(info):
     my_info = info
     print_info("CLI started. Type 'help' for commands.")
 
-    def handle_command(command_line):
-        parts = command_line.strip().split()
-        if not parts:
-            return True
-        command = parts[0]
-        args = parts[1:]
-        handler = command_registry.get(command)
-        if handler:
-            return handler(args)
-        else:
-            print_error(f"Unknown command: {command}")
-            return True
-
     while True:
         print_prompt()
         try:
             command_line = input()
+            if not command_line.strip():
+                continue
+
+            parts = command_line.split()
+            handler = command_registry.get(parts[0])
+            if not handler:
+                print_error(f"Unknown command: {parts[0]}")
+                continue
+
+            if not handler(parts[1:]):
+                break
+
         except KeyboardInterrupt:
             print_error("\nInterrupted.")
-            break
-        if not handle_command(command_line):
             break
 
 

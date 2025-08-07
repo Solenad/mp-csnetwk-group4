@@ -3,6 +3,7 @@ from typing import Dict
 import time
 import secrets
 from ui.utils import print_error, print_verbose
+from config import verbose_mode
 from network.peer_registry import get_peer
 
 DEFAULT_TTL = 3600  # 1 hour default TTL per RFC
@@ -33,13 +34,12 @@ def send_post(content, sender_info):
     send_broadcast(message)
 
 
-# message_sender.py
-def send_dm(recipient_id: str, content: str, sender_info: Dict) -> None:
-    """Send direct message to a peer"""
+def send_dm(recipient_id: str, content: str, sender_info: Dict) -> bool:
+    """Send direct message to a peer, returns True if successful"""
     peer = get_peer(recipient_id)
     if not peer:
         print_error(f"Peer {recipient_id} not found")
-        return
+        return False
 
     timestamp = int(time.time())
     message = (
@@ -56,9 +56,12 @@ def send_dm(recipient_id: str, content: str, sender_info: Dict) -> None:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.sendto(message.encode(), (peer["ip"], peer["port"]))
-            print_verbose(f"Sent DM to {recipient_id}")
+            if verbose_mode:
+                print_verbose(f"Sent DM to {recipient_id}")
+            return True
     except Exception as e:
         print_error(f"Failed to send DM: {e}")
+        return False
 
 
 def send_follow(username_to_follow, sender_info, peers):
