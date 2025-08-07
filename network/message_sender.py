@@ -1,3 +1,4 @@
+from network.peer_registry import get_peer_list
 import socket
 from typing import Dict
 import time
@@ -66,10 +67,11 @@ def send_dm(recipient_id: str, content: str, sender_info: Dict) -> bool:
         return False
 
 
-def send_follow(username_to_follow, sender_info, peers):
-    timestamp = int(time.time())
-    for peer in peers.values():
-        if peer.get("username") == username_to_follow:
+def send_follow(user_id_to_follow, sender_info):
+    peers = get_peer_list()
+    for peer in peers:
+        if peer["user_id"] == user_id_to_follow:
+            timestamp = int(time.time())
             message = (
                 "TYPE: FOLLOW\n"
                 f"FROM: {sender_info['user_id']}\n"
@@ -80,10 +82,51 @@ def send_follow(username_to_follow, sender_info, peers):
                     timestamp + DEFAULT_TTL}|follow\n"
                 "\n"
             )
-            if send_unicast(message, (peer["ip"], 50999)):
-                print_verbose(f"Follow request sent to {username_to_follow}")
-            return
-    print_error(f"User {username_to_follow} not found")
+
+            # Parse port from user_id, not from peer['port']
+            host, port = peer["user_id"].split("@")[1].split(":")
+            peer_ip = peer["ip"]
+            peer_port = int(port)
+
+            print_verbose(
+                f"Sending FOLLOW to {peer_ip}:{
+                    peer_port} for {peer['user_id']}"
+            )
+
+            return send_unicast(message, (peer_ip, peer_port))
+    print_error(f"User {user_id_to_follow} not found")
+    return False
+
+
+def send_unfollow(user_id_to_unfollow, sender_info):
+    peers = get_peer_list()
+    for peer in peers:
+        if peer["user_id"] == user_id_to_unfollow:
+            timestamp = int(time.time())
+            message = (
+                "TYPE: UNFOLLOW\n"
+                f"FROM: {sender_info['user_id']}\n"
+                f"TO: {peer['user_id']}\n"
+                f"TIMESTAMP: {timestamp}\n"
+                f"MESSAGE_ID: {secrets.token_hex(4)}\n"
+                f"TOKEN: {sender_info['user_id']}|{
+                    timestamp + DEFAULT_TTL}|follow\n"
+                "\n"
+            )
+
+            # Parse port from user_id, not from peer['port']
+            host, port = peer["user_id"].split("@")[1].split(":")
+            peer_ip = peer["ip"]
+            peer_port = int(port)
+
+            print_verbose(
+                f"Sending UNFOLLOW to {peer_ip}:{
+                    peer_port} for {peer['user_id']}"
+            )
+
+            return send_unicast(message, (peer_ip, peer_port))
+    print_error(f"User {user_id_to_unfollow} not found")
+    return False
 
 
 def send_broadcast(message):

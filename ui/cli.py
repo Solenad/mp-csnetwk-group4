@@ -1,11 +1,11 @@
 from rich.console import Console
 from rich.table import Table
 from network import my_info
-from network.message_sender import send_post, send_dm, send_follow
+from network.message_sender import send_post, send_dm, send_follow, send_unfollow
 from network.broadcast import send_profile
 from network.peer_registry import get_peer_list
 from ui.utils import print_info, print_error, print_prompt, print_success
-from config import verbose_mode
+from config import verbose_mode, followed_users
 import time
 
 console = Console()
@@ -47,7 +47,7 @@ def cmd_peers(_args):
 
 def cmd_send(args):
     if not args:
-        print_error("Usage: send <post|dm|follow|hello> [arguments]")
+        print_error("Usage: send <post|dm|follow|unfollow|hello> [arguments]")
         return True
 
     subcommand = args[0]
@@ -60,6 +60,7 @@ def cmd_send(args):
             message = " ".join(subargs)
             send_post(message, my_info)
             print_success("Post sent successfully")
+
     elif subcommand == "dm":
         if len(subargs) < 2:
             print_error("Usage: send dm <username> <message>")
@@ -68,20 +69,41 @@ def cmd_send(args):
             message = " ".join(subargs[1:])
             if send_dm(recipient, message, my_info):
                 print_success(f"DM sent to {recipient}")
+
     elif subcommand == "follow":
         if not subargs:
             print_error("Usage: send follow <username>")
         else:
-            send_follow(subargs[0], my_info)
-            print_success(f"Follow request sent to {subargs[0]}")
+            username = subargs[0]
+            if username in followed_users:
+                print_error(f"You are already following {username}")
+            elif send_follow(username, my_info):
+                followed_users.add(username)
+                print_success(f"Follow request sent to {username}")
+
+    elif subcommand == "unfollow":
+        if not subargs:
+            print_error("Usage: send unfollow <username>")
+        else:
+            username = subargs[0]
+            if username not in followed_users:
+                print_error(f"You are not following {username}")
+            elif send_unfollow(username, my_info):
+                followed_users.remove(username)
+                print_success(f"Unfollow request sent to {username}")
+
     elif subcommand == "hello":
         if subargs:
             print_error("Usage: send hello (no arguments needed)")
         else:
             send_profile(my_info)
             print_success("Profile broadcast sent to network")
+
     else:
-        print_error("Unknown subcommand for send. Available: post, dm, follow, hello")
+        print_error(
+            "Unknown subcommand for send. Available: post, dm, follow, unfollow, hello"
+        )
+
     return True
 
 

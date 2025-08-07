@@ -1,11 +1,19 @@
-# socket_manager.py
 import socket
 import threading
-import os
 
 BUFFER_SIZE = 4096
-BASE_PORT = 50999  # Default LSNP port
-MAX_PORT_ATTEMPTS = 100  # How many ports to try before giving up
+BASE_PORT = 50999  # Default starting port
+MAX_PORT_ATTEMPTS = 100  # Max ports to try (51000 to 51098)
+
+
+def is_port_in_use(port):
+    """Checks if the given UDP port is already in use."""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as temp_sock:
+        try:
+            temp_sock.bind(("127.0.0.1", port))
+            return False
+        except OSError:
+            return True
 
 
 def start_listening(callback):
@@ -14,11 +22,11 @@ def start_listening(callback):
 
     for attempt in range(MAX_PORT_ATTEMPTS):
         try:
+            # Create socket
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-            # Always bind to all interfaces, regardless of OS
+            # Bind to all interfaces
             sock.bind(("0.0.0.0", port))
 
             print(f"Listening on UDP port {port}")
@@ -49,4 +57,4 @@ def start_listening(callback):
 
     thread = threading.Thread(target=listen, daemon=True)
     thread.start()
-    return sock, port  # Return the actual port being used
+    return sock, port
