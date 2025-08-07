@@ -1,11 +1,10 @@
-from network.peer_registry import get_peer_list
+from network.peer_registry import get_peer_list, get_peer
+from network.broadcast import send_broadcast
 import socket
 from typing import Dict
 import time
 import secrets
 from ui.utils import print_error, print_verbose
-from config import verbose_mode
-from network.peer_registry import get_peer
 
 DEFAULT_TTL = 3600  # 1 hour default TTL per RFC
 
@@ -127,12 +126,3 @@ def send_unfollow(user_id_to_unfollow, sender_info):
             return send_unicast(message, (peer_ip, peer_port))
     print_error(f"User {user_id_to_unfollow} not found")
     return False
-
-
-def send_broadcast(message):
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            sock.sendto(message.encode("utf-8"), ("255.255.255.255", 50999))
-    except Exception as e:
-        print_error(f"Broadcast failed: {e}")
