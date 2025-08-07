@@ -37,8 +37,20 @@ def send_post(content, sender_info):
 def send_dm(recipient_id: str, content: str, sender_info: Dict) -> bool:
     peer = get_peer(recipient_id)
     if not peer:
-        print_error(f"Peer {recipient_id} not found")
-        return False
+        try:
+            _, address = recipient_id.split("@")
+            ip, port = address.split(":")
+            ip = ip.strip()
+            port = int(port.strip())
+        except Exception:
+            print_error(f"Invalid recipient ID format: {recipient_id}")
+            return False
+    else:
+        ip = peer["ip"]
+        # Always parse port from user_id
+        _, address = peer["user_id"].split("@")
+        _, port = address.split(":")
+        port = int(port.strip())
 
     timestamp = int(time.time())
     message_id = secrets.token_hex(4)
@@ -55,15 +67,7 @@ def send_dm(recipient_id: str, content: str, sender_info: Dict) -> bool:
         "\n"
     )
 
-    try:
-        # Use unicast as specified in RFC
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.sendto(message.encode(), (peer["ip"], peer["port"]))
-        print(f"\nDM sent to {recipient_id}\n>> ", end="", flush=True)
-        return True
-    except Exception as e:
-        print_error(f"Failed to send DM: {e}")
-        return False
+    return send_unicast(message, (ip, port))
 
 
 def send_follow(user_id_to_follow, sender_info):
@@ -126,3 +130,41 @@ def send_unfollow(user_id_to_unfollow, sender_info):
             return send_unicast(message, (peer_ip, peer_port))
     print_error(f"User {user_id_to_unfollow} not found")
     return False
+
+
+def send_ack(message_id: str, recipient_user_id: str):
+    from network.peer_registry import get_peer
+
+    peer = get_peer(recipient_user_id)
+    if not peer:
+        try:
+            _, address = recipient_user_id.split("@")
+            ip, port = address.split(":")
+            ip = ip.strip()
+            port = int(port.strip())
+        except Exception:
+            print_error(
+                f"Cannot send ACK — invalid user ID format: {
+                    recipient_user_id}"
+            )
+            return False
+    else:
+        ip = peer["ip"]
+        port = peer["port"]
+
+    ack_message = (
+        "TYPE: ACK\n"
+        f"MESSAGE_ID: {
+            message_id}\n"
+        "STATUS: RECEIVED\n"
+        "\n"
+    )
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.sendto(ack_message.encode("utf-8"), (ip, port))
+        print_verbose(f"ACK sent to {recipient_user_id} for MESSAGE_ID {message_id}")
+        return True
+    except Exception as e:
+        print_error(f"Failed to send ACK: {e}")
+        return False
