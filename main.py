@@ -20,6 +20,7 @@ def handle_message(message: str, addr: tuple) -> None:
 
         msg_type = content.get("TYPE")
         user_id = content.get("USER_ID") or content.get("FROM")
+
         if not msg_type or not user_id:
             return
 
@@ -27,14 +28,13 @@ def handle_message(message: str, addr: tuple) -> None:
         if user_id == my_info["user_id"]:
             return
 
-        # Add/update peer for any message type (RFC Section 6: User Discovery)
+        # Update peer info
         add_peer(
             user_id=user_id,
             ip=addr[0],
-            port=int(content.get("PORT", my_info.get("port", 50999))),
+            port=addr[1],
             display_name=content.get("DISPLAY_NAME", user_id.split("@")[0]),
         )
-        update_last_seen(user_id)
 
         if msg_type == "POST":
             print(
@@ -43,23 +43,28 @@ def handle_message(message: str, addr: tuple) -> None:
                 end="",
                 flush=True,
             )
-        elif msg_type == ["PING", "PROFILE"]:
-            send_profile(my_info)
-        if msg_type == "DM":
-            # Send ACK for received DM
-            ack_msg = (
-                "TYPE: ACK\n"
-                f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
-                "STATUS: RECEIVED\n"
-                "\n"
-            )
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-                sock.sendto(ack_msg.encode(), addr)
+        elif msg_type == "DM":
+            token = content.get("TOKEN", "").split("|")
+            if len(token) != 3 or token[2] != "chat":
+                if verbose_mode:
+                    print(
+                        f"\n[WARNING] Invalid DM token from {
+                          user_id}\n>> ",
+                        end="",
+                        flush=True,
+                    )
+                return
 
-            # Then process the DM
-            print(f"\n[DM from {content['FROM']}]: {content['CONTENT']}")
+            print(
+                f"\n[DM from {content['FROM']}]: {
+                  content.get('CONTENT', '')}\n>> ",
+                end="",
+                flush=True,
+            )
+        elif msg_type in ["PING", "PROFILE"]:
+            send_profile(my_info)
         elif msg_type == "FOLLOW":
-            print(f"\n{content.get('FROM')} followed you!")
+            print(f"\n{content.get('FROM')} followed you!\n>> ", end="", flush=True)
 
     except Exception as e:
         if verbose_mode:

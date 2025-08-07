@@ -35,7 +35,6 @@ def send_post(content, sender_info):
 
 
 def send_dm(recipient_id: str, content: str, sender_info: Dict) -> bool:
-    """RFC-compliant DM with retry and ACK checking"""
     peer = get_peer(recipient_id)
     if not peer:
         print_error(f"Peer {recipient_id} not found")
@@ -43,6 +42,8 @@ def send_dm(recipient_id: str, content: str, sender_info: Dict) -> bool:
 
     timestamp = int(time.time())
     message_id = secrets.token_hex(4)
+    token = f"{sender_info['user_id']}|{timestamp + DEFAULT_TTL}|chat"
+
     message = (
         "TYPE: DM\n"
         f"FROM: {sender_info['user_id']}\n"
@@ -50,33 +51,19 @@ def send_dm(recipient_id: str, content: str, sender_info: Dict) -> bool:
         f"CONTENT: {content}\n"
         f"TIMESTAMP: {timestamp}\n"
         f"MESSAGE_ID: {message_id}\n"
-        f"TOKEN: {sender_info['user_id']}|{timestamp + DEFAULT_TTL}|chat\n"
+        f"TOKEN: {token}\n"
         "\n"
     )
 
-    # Try 3 times with delay (RFC recommends retries for UDP)
-    for attempt in range(3):
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-                sock.settimeout(2.0)  # Wait for ACK
-                sock.sendto(message.encode(), (peer["ip"], peer["port"]))
-
-                # Wait for ACK per RFC
-                data, _ = sock.recvfrom(4096)
-                if f"MESSAGE_ID: {message_id}" in data.decode():
-                    if verbose_mode:
-                        print_verbose(f"DM to {recipient_id} confirmed")
-                    return True
-
-        except socket.timeout:
-            print_error(f"DM attempt {attempt+1} timeout")
-            continue
-        except Exception as e:
-            print_error(f"DM send error: {e}")
-            continue
-
-    print_error(f"Failed to deliver DM to {recipient_id} after 3 attempts")
-    return False
+    try:
+        # Use unicast as specified in RFC
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.sendto(message.encode(), (peer["ip"], peer["port"]))
+        print(f"\nDM sent to {recipient_id}\n>> ", end="", flush=True)
+        return True
+    except Exception as e:
+        print_error(f"Failed to send DM: {e}")
+        return False
 
 
 def send_follow(username_to_follow, sender_info, peers):
