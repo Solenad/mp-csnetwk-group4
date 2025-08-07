@@ -1,6 +1,6 @@
 # main.py
 from network.socket_manager import start_listening
-from network.broadcast import send_profile, my_info
+from network.broadcast import send_profile, my_info, send_immediate_discovery
 from ui.cli import start_cli
 from network.peer_registry import add_peer, update_last_seen
 import threading
@@ -43,13 +43,12 @@ def handle_message(message: str, addr: tuple) -> None:
                 end="",
                 flush=True,
             )
+        elif msg_type == ["PING", "PROFILE"]:
+            send_profile(my_info)
         elif msg_type == "DM" and content.get("FROM") and content.get("CONTENT"):
             print(f"\n[DM from {content['FROM']}]: {content['CONTENT']}")
         elif msg_type == "FOLLOW":
             print(f"\n{content.get('FROM')} followed you!")
-        elif msg_type == "PING":
-            # Send our profile in response to PING (RFC Section 6)
-            send_profile(my_info)
 
     except Exception as e:
         if verbose_mode:
@@ -68,7 +67,18 @@ if __name__ == "__main__":
         }
     )
 
+    # Send immediate discovery bursts
     threading.Thread(
-        target=lambda: [send_profile(my_info), time.sleep(300)], daemon=True
+        target=send_immediate_discovery, args=(my_info,), daemon=True
     ).start()
+
+    # Start periodic broadcasting (now with shorter initial interval)
+    def broadcast_loop():
+        initial_interval = 3  # First interval is shorter (30s)
+        while True:
+            time.sleep(initial_interval)
+            send_profile(my_info)
+            initial_interval = 300  # Subsequent intervals are 300s
+
+    threading.Thread(target=broadcast_loop, daemon=True).start()
     start_cli(my_info)

@@ -19,13 +19,13 @@ def get_local_ip():
 
 
 def send_ping(my_info):
-    """Send PING message as per RFC"""
+    """RFC-compliant PING message"""
     message = (
         "TYPE: PING\n"
         f"USER_ID: {my_info['user_id']}\n"
-        "\n"  # Double newline terminator
+        "\n"  # Double newline per RFC
     )
-    send_broadcast(message)
+    send_broadcast(message, [50999, 51000])
 
 
 # broadcast.py (updated send_profile function)
@@ -81,6 +81,13 @@ def send_broadcast(message, target_ports=None):
                 sock.sendto(message.encode("utf-8"), ("255.255.255.255", port))
     except Exception as e:
         print(f"Broadcast failed: {e}")
+
+
+def send_immediate_discovery(my_info):
+    """Send rapid initial discovery packets"""
+    for _ in range(3):  # Send 3 quick PROFILEs
+        send_profile(my_info)
+        time.sleep(0.5)  # Short delay between packets
 
 
 my_info = {
