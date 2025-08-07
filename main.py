@@ -45,7 +45,18 @@ def handle_message(message: str, addr: tuple) -> None:
             )
         elif msg_type == ["PING", "PROFILE"]:
             send_profile(my_info)
-        elif msg_type == "DM" and content.get("FROM") and content.get("CONTENT"):
+        if msg_type == "DM":
+            # Send ACK for received DM
+            ack_msg = (
+                "TYPE: ACK\n"
+                f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                "STATUS: RECEIVED\n"
+                "\n"
+            )
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                sock.sendto(ack_msg.encode(), addr)
+
+            # Then process the DM
             print(f"\n[DM from {content['FROM']}]: {content['CONTENT']}")
         elif msg_type == "FOLLOW":
             print(f"\n{content.get('FROM')} followed you!")

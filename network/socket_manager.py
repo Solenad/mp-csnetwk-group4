@@ -11,23 +11,24 @@ def start_listening(callback):
     sock = None
     port = BASE_PORT
 
-    # Try multiple ports until we find an available one
     for attempt in range(MAX_PORT_ATTEMPTS):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # Add this line to enable broadcast reception
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            sock.bind(("", port))
+            # Bind to all interfaces explicitly
+            sock.bind(("0.0.0.0", port))  # Changed from ('', port)
             print(f"Listening on UDP port {port}")
             break
         except OSError:
-            port += 1  # Try next port
+            port += 1
             if sock:
                 sock.close()
             if attempt == MAX_PORT_ATTEMPTS - 1:
                 print(
-                    f"Error: Could not find available port after {
-                        MAX_PORT_ATTEMPTS} attempts"
+                    f"Error: Could not bind to port after {
+                      MAX_PORT_ATTEMPTS} attempts"
                 )
                 return None, None
 
