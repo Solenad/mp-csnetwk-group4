@@ -25,7 +25,7 @@ def send_ping(my_info):
         f"USER_ID: {my_info['user_id']}\n"
         "\n"  # Double newline per RFC
     )
-    send_broadcast(message, [50999, 51000])
+    send_broadcast(message)
 
 
 # broadcast.py (updated send_profile function)
@@ -57,7 +57,7 @@ def send_profile(my_info: Dict) -> None:
     message += "\n"  # Double newline terminator per RFC
 
     # Send to both default ports per RFC
-    send_broadcast(message, [50999, 51000])
+    send_broadcast(message)
 
 
 def get_mime_type(filepath):
@@ -75,8 +75,10 @@ def send_broadcast(message, target_ports=None):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             ports = (
-                target_ports if target_ports else [50999, 51000]
-            )  # Default to both ports
+                target_ports
+                if target_ports
+                else list(range(50999, 50999 + 100))  # Full port range
+            )
             for port in ports:
                 sock.sendto(message.encode("utf-8"), ("255.255.255.255", port))
     except Exception as e:

@@ -1,4 +1,5 @@
 from colorama import init, Fore
+from rich import print as rprint
 from config import verbose_mode
 
 init(autoreset=True)
@@ -17,7 +18,7 @@ def print_info(msg):
 
 
 def print_prompt():
-    print(Fore.YELLOW + ">>", end="")
+    rprint("[yellow]>> [/yellow]", end="", flush=True)
 
 
 def print_verbose(message):

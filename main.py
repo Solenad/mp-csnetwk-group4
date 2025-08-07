@@ -1,12 +1,13 @@
 # main.py
 from network.socket_manager import start_listening
+from network.message_sender import send_ack
 from network.broadcast import send_profile, my_info, send_immediate_discovery
 from ui.cli import start_cli
-from network.peer_registry import add_peer, update_last_seen
+from network.peer_registry import add_peer
 import threading
 import socket
-import time
 from config import verbose_mode
+from ui.utils import print_prompt
 
 
 def handle_message(message: str, addr: tuple) -> None:
@@ -21,14 +22,13 @@ def handle_message(message: str, addr: tuple) -> None:
         msg_type = content.get("TYPE")
         user_id = content.get("USER_ID") or content.get("FROM")
 
-        if not msg_type or not user_id:
-            return
+        # if msg_type != "PROFILE":
+        #     print(f"[DEBUG] msg_type = {msg_type}")
 
-        # Skip our own messages
         if user_id == my_info["user_id"]:
             return
 
-        # Update peer info
+        # Always update peer info
         add_peer(
             user_id=user_id,
             ip=addr[0],
@@ -38,33 +38,67 @@ def handle_message(message: str, addr: tuple) -> None:
 
         if msg_type == "POST":
             print(
-                f"\n[New Post] {content.get('DISPLAY_NAME', user_id)}: {
-                    content.get('CONTENT', '')}\n>> ",
+                f"\n[POST] {content.get('DISPLAY_NAME', user_id)}: {
+                    content.get('CONTENT', '')}\n",
                 end="",
                 flush=True,
             )
+            print_prompt()
         elif msg_type == "DM":
             token = content.get("TOKEN", "").split("|")
             if len(token) != 3 or token[2] != "chat":
                 if verbose_mode:
                     print(
                         f"\n[WARNING] Invalid DM token from {
-                          user_id}\n>> ",
+                            user_id}\n>> ",
                         end="",
                         flush=True,
                     )
                 return
 
+            display_name = content.get("FROM", user_id).split("@")[0]
             print(
-                f"\n[DM from {content['FROM']}]: {
-                  content.get('CONTENT', '')}\n>> ",
+                f"\n[DM from {display_name}]: {
+                    content.get('CONTENT', '')}\n",
                 end="",
                 flush=True,
             )
+            print_prompt()
+
+            # Send ACK
+            message_id = content.get("MESSAGE_ID")
+            sender_id = content.get("FROM")
+            if message_id and sender_id:
+                send_ack(message_id, sender_id)
+
         elif msg_type in ["PING", "PROFILE"]:
             send_profile(my_info)
+
         elif msg_type == "FOLLOW":
-            print(f"\n{content.get('FROM')} followed you!\n>> ", end="", flush=True)
+            sender = content.get("FROM", user_id)
+            print(
+                f"\n[FOLLOW] User {
+                    sender} has followed you\n",
+                end="",
+                flush=True,
+            )
+            print_prompt()
+
+        elif msg_type == "UNFOLLOW":
+            sender = content.get("FROM", user_id)
+            print(
+                f"\n[UNFOLLOW] User {
+                    sender} has unfollowed you\n",
+                end="",
+                flush=True,
+            )
+            print_prompt()
+        elif msg_type == "ACK":
+            if verbose_mode:
+                print(
+                    f"[VERBOSE] Received ACK for MESSAGE_ID: {
+                        content.get('MESSAGE_ID')}"
+                )
 
     except Exception as e:
         if verbose_mode:
@@ -79,7 +113,7 @@ if __name__ == "__main__":
     my_info.update(
         {
             "port": port,
-            "user_id": f"{my_info['username']}@{socket.gethostbyname(socket.gethostname())}",
+            "user_id": f"{my_info['username']}@{socket.gethostbyname(socket.gethostname())}:{port}",
         }
     )
 
@@ -87,14 +121,4 @@ if __name__ == "__main__":
     threading.Thread(
         target=send_immediate_discovery, args=(my_info,), daemon=True
     ).start()
-
-    # Start periodic broadcasting (now with shorter initial interval)
-    def broadcast_loop():
-        initial_interval = 3  # First interval is shorter (30s)
-        while True:
-            time.sleep(initial_interval)
-            send_profile(my_info)
-            initial_interval = 300  # Subsequent intervals are 300s
-
-    threading.Thread(target=broadcast_loop, daemon=True).start()
     start_cli(my_info)
