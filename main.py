@@ -38,8 +38,7 @@ def handle_message(message: str, addr: tuple) -> None:
 
         if msg_type == "POST":
             print(
-                f"\n[New Post] {content.get('DISPLAY_NAME', user_id)}: {
-                    content.get('CONTENT', '')}\n>> ",
+                f"\n[New Post] {content.get('DISPLAY_NAME', user_id)}: {content.get('CONTENT', '')}\n>> ",
                 end="",
                 flush=True,
             )
@@ -48,16 +47,14 @@ def handle_message(message: str, addr: tuple) -> None:
             if len(token) != 3 or token[2] != "chat":
                 if verbose_mode:
                     print(
-                        f"\n[WARNING] Invalid DM token from {
-                          user_id}\n>> ",
+                        f"\n[WARNING] Invalid DM token from {user_id}\n>> ",
                         end="",
                         flush=True,
                     )
                 return
 
             print(
-                f"\n[DM from {content['FROM']}]: {
-                  content.get('CONTENT', '')}\n>> ",
+                f"\n[DM from {content['FROM']}]: {content.get('CONTENT', '')}\n>> ",
                 end="",
                 flush=True,
             )

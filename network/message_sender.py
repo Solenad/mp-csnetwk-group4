@@ -27,8 +27,7 @@ def send_post(content, sender_info):
         f"CONTENT: {content}\n"
         f"TTL: {DEFAULT_TTL}\n"
         f"MESSAGE_ID: {secrets.token_hex(4)}\n"
-        f"TOKEN: {sender_info['user_id']}|{
-            timestamp + DEFAULT_TTL}|broadcast\n"
+        f"TOKEN: {sender_info['user_id']}|{timestamp + DEFAULT_TTL}|broadcast\n"
         "\n"
     )
     send_broadcast(message)
@@ -76,8 +75,7 @@ def send_follow(username_to_follow, sender_info, peers):
                 f"TO: {peer['user_id']}\n"
                 f"TIMESTAMP: {timestamp}\n"
                 f"MESSAGE_ID: {secrets.token_hex(4)}\n"
-                f"TOKEN: {sender_info['user_id']}|{
-                    timestamp + DEFAULT_TTL}|follow\n"
+                f"TOKEN: {sender_info['user_id']}|{timestamp + DEFAULT_TTL}|follow\n"
                 "\n"
             )
             if send_unicast(message, (peer["ip"], 50999)):

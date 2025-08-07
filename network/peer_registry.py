@@ -21,7 +21,7 @@ def get_peer(user_id: str) -> Dict:
 
 
 def add_peer(
-    user_id: str, ip: str, port: int = 50999, display_name: str = None
+    user_id: str, ip: str, port: int, display_name: str = None
 ) -> None:
     _peer_registry[user_id] = {
         "user_id": user_id,

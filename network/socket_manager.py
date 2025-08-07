@@ -8,33 +8,19 @@ BASE_PORT = 50999  # Default LSNP port
 MAX_PORT_ATTEMPTS = 100  # How many ports to try before giving up
 
 
-def start_listening(callback):
+def start_listening(callback, preferred_port=50999):
     sock = None
-    port = BASE_PORT
+    port = preferred_port
 
-    for attempt in range(MAX_PORT_ATTEMPTS):
+    while port < 65535:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-            # Always bind to all interfaces, regardless of OS
-            sock.bind(("0.0.0.0", port))
-
-            print(f"Listening on UDP port {port}")
+            sock.bind(("", port))
+            print(f"Listening on UDP PORT: {port}")
             break
-        except OSError as e:
-            print(f"Port {port} in use, trying next... ({e})")
+        except OSError:
             port += 1
-            if sock:
-                sock.close()
-            if attempt == MAX_PORT_ATTEMPTS - 1:
-                print(
-                    f"Error: Could not bind to port after {
-                        MAX_PORT_ATTEMPTS} attempts"
-                )
-                return None, None
-
+    # Start listening in a thread
     def listen():
         while True:
             try:
@@ -44,9 +30,9 @@ def start_listening(callback):
                     if message:
                         callback(message, addr)
             except Exception as e:
-                print(f"Error receiving data: {e}")
+                print(f"[ERROR] Receiving data: {e}")
                 break
 
     thread = threading.Thread(target=listen, daemon=True)
     thread.start()
-    return sock, port  # Return the actual port being used
+    return sock, port
