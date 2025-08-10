@@ -89,8 +89,7 @@ def handle_message(message: str, addr: tuple) -> None:
         # --- PROFILE ---
         elif msg_type == "PROFILE":
             if initial_discovery:
-                return  # skip flood during discovery
-
+                return
             if config.verbose_mode:
                 print_verbose(
                     f"\nTYPE: PROFILE\n"
@@ -162,7 +161,6 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             handle_invite(content, addr, my_info)
-            print_prompt()
 
         elif msg_type == "TICTACTOE_MOVE":
             if config.verbose_mode:
@@ -178,7 +176,6 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             handle_move(content, addr, my_info)
-            print_prompt()
 
         elif msg_type == "TICTACTOE_RESULT":
             if config.verbose_mode:
@@ -194,7 +191,6 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n\n"
                 )
             handle_result(content, addr, my_info)
-            print_prompt()
 
         else:
             if config.verbose_mode:
