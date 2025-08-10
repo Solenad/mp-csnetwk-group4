@@ -1,14 +1,14 @@
 # main.py
 from network.socket_manager import start_listening
 from network.message_sender import send_ack
-from network.broadcast import send_profile, my_info, send_immediate_discovery
+from network.broadcast import send_ping, send_profile, my_info, send_immediate_discovery
 from ui.cli import start_cli
 from network.peer_registry import add_peer
 import threading
 import socket
 from config import verbose_mode
 from ui.utils import print_prompt
-
+import time
 
 def handle_message(message: str, addr: tuple) -> None:
     try:
@@ -121,4 +121,27 @@ if __name__ == "__main__":
     threading.Thread(
         target=send_immediate_discovery, args=(my_info,), daemon=True
     ).start()
+
+    # Periodic 5-minute discovery (PING or PROFILE)
+    def periodic_user_discovery():
+        PROFILE_INTERVAL = 300  # 5 minutes
+        PING_INTERVAL = 30      # heartbeat between profiles
+        last_profile_time = 0
+
+        while True:
+            now = time.time()
+ 
+            if now - last_profile_time >= PROFILE_INTERVAL:
+                # If no PROFILE sent in last 5 minutes, send one now
+                send_profile(my_info)
+                last_profile_time = now
+            else:
+                # If PROFILE was sent recently, send a lightweight PING
+                send_ping(my_info)
+
+            time.sleep(PING_INTERVAL)
+
+    # Start the periodic user discovery thread in the background
+    threading.Thread(target=periodic_user_discovery, daemon=True).start()
+
     start_cli(my_info)
