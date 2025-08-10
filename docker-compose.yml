@@ -1,0 +1,7 @@
+version: "3.9"
+services:
+  python-app:
+    build: .
+    ports:
+      - "50999-51098:50999-51098/udp"
+    restart: unless-stopped
