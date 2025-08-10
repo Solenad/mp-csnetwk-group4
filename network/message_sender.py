@@ -173,12 +173,7 @@ def send_ack(message_id: str, recipient_user_id: str):
             port = peer["port"]
         ip = peer["ip"]
 
-    ack_message = (
-        "TYPE: ACK\n"
-        f"MESSAGE_ID: {
-            message_id}\n"
-        "STATUS: RECEIVED\n\n"
-    )
+    ack_message = "TYPE: ACK\n" f"MESSAGE_ID: {message_id}\n" "STATUS: RECEIVED\n\n"
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.sendto(ack_message.encode("utf-8"), (ip, port))

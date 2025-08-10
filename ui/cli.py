@@ -278,7 +278,6 @@ def cmd_test(args):
 
     return True
 
-
 def cmd_like(args):
     """Send a like to a post"""
     if len(args) < 1:
@@ -347,7 +346,6 @@ def cmd_show_avatar(args):
     except Exception as e:
         print_error(f"Failed to display avatar: {e}")
     return True
-
 
 def start_cli(info):
     global my_info

@@ -199,7 +199,6 @@ def handle_message(message: str, addr: tuple) -> None:
         elif msg_type == "PROFILE":
             if initial_discovery:
                 return
-
             # Store avatar if present
             avatar_data = content.get("AVATAR_DATA")
             avatar_type = content.get("AVATAR_TYPE")
@@ -213,7 +212,6 @@ def handle_message(message: str, addr: tuple) -> None:
                 avatar_data=avatar_data,
                 avatar_type=avatar_type,
             )
-
             if config.verbose_mode:
                 avatar_info = ""
                 if avatar_data:
@@ -329,7 +327,6 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n\n"
                 )
             handle_result(content, addr, my_info)
-
         elif msg_type == "LIKE":
             post_timestamp = content.get("POST_TIMESTAMP")
             action = content.get("ACTION", "LIKE").upper()
