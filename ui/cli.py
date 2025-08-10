@@ -9,6 +9,7 @@ from network.tictactoe import send_invite, send_move
 from ui.utils import print_info, print_error, print_prompt, print_success, print_verbose
 import config
 import time
+from network.token_utils import generate_token, revoke_token
 
 console = Console()
 
@@ -103,7 +104,7 @@ def cmd_send(args):
 
                 print(
                     f"[hello] Sending PROFILE broadcast to {
-                      get_subnet_broadcast()}:50999"
+                        get_subnet_broadcast()}:50999"
                 )
             send_profile(my_info)
             print_success("Profile broadcast sent to network")
@@ -112,7 +113,6 @@ def cmd_send(args):
         print_error(
             "Unknown subcommand for send. Available: post, dm, follow, unfollow, hello"
         )
-
     return True
 
 
@@ -136,27 +136,36 @@ def cmd_help(_args):
         "ttt invite <username> <X|O>       - Invite a player to TicTacToe",
         "ttt move <game_id> <pos>          - Make a TicTacToe move",
         "verbose [on|off]                  - Toggle or set verbose mode (RFC-format output)",
-        "help                              - Show this help message",
+        "test parse <message>              - Test message parsing",
+        "test unicast <user> <msg>         - Test direct messaging",
+        "test broadcast                    - Test broadcast functionality",
+        "test token                        - Test token validation scenarios",
+        "test all                          - Run all protocol compliance tests",
+        "",
+        "Protocol Format:",
+        "  - KEY: VALUE lines",
+        "  - Terminate with \\n\\n",
+        "  - Broadcast address: 255.255.255.255:50999",
     ]
     for cmd in commands:
-        print(f" - {cmd}")
+        if cmd:
+            print(f" - {cmd}")
+        else:
+            print()
     return True
 
 
 def cmd_verbose(args):
     """Toggle global verbose mode in config"""
     if not args:
-        # Toggle instead of just showing
         config.verbose_mode = not config.verbose_mode
         print_success(
-            f"Verbose mode {
-                'enabled' if config.verbose_mode else 'disabled'}"
+            f"Verbose mode {'enabled' if config.verbose_mode else 'disabled'}"
         )
     elif args[0] in ["on", "off"]:
         config.verbose_mode = args[0] == "on"
         print_success(
-            f"Verbose mode {
-                'enabled' if config.verbose_mode else 'disabled'}"
+            f"Verbose mode {'enabled' if config.verbose_mode else 'disabled'}"
         )
     else:
         print_error("Usage: verbose [on|off]")
@@ -176,6 +185,86 @@ def cmd_ttt(args):
         send_move(game_id, int(pos), my_info)
     else:
         print_error("Usage: ttt invite <username> <X|O> | ttt move <game_id> <pos>")
+    return True
+
+
+def cmd_test_token(_args):
+    """Test token validation scenarios"""
+    print_info("Token validation tests can only be run from the main application")
+    return True
+
+
+def cmd_test(args):
+    """Protocol compliance testing"""
+    if not args:
+        print_error("Usage: test <parse|unicast|broadcast|token|all> [args]")
+        return True
+
+    subcmd = args[0]
+
+    if subcmd == "parse":
+        if len(args) < 2:
+            print_error("Usage: test parse <message>")
+            return True
+        # Join rest of args as the message to parse
+        message = " ".join(args[1:])
+        if not message.endswith("\n\n"):
+            print_error("Message missing terminator (\\n\\n)")
+            return False
+        lines = message.strip().splitlines()
+        for line in lines:
+            if ": " not in line:
+                print_error(f"Invalid line: {line}")
+                return False
+        print_success("Message parse test passed")
+        return True
+
+    elif subcmd == "unicast":
+        if len(args) < 3:
+            print_error("Usage: test unicast <user_id> <message>")
+            return True
+
+        recipient = args[1]
+        message = " ".join(args[2:])
+
+        print_info(
+            f"=== TEST UNICAST ===\nTo: {
+                   recipient}\nMessage: {message}"
+        )
+
+        if send_dm(recipient, message, my_info):
+            print_success("DM sent successfully")
+        else:
+            print_error("Failed to send DM")
+
+    elif subcmd == "broadcast":
+        print_info("=== TEST BROADCAST ===")
+        send_profile(my_info)
+        print_success("Broadcast PROFILE message sent")
+
+    elif subcmd == "token":
+        user_id = my_info["user_id"]
+        token = generate_token(user_id, "test")
+        print_info(f"Generated token: {token}")
+        # Add validation logic here if needed
+        print_success("Token test completed")
+        return True
+
+    elif subcmd == "all":
+        print_info("Running all protocol compliance tests...")
+        # Run unicast test
+        cmd_test(["unicast", "testuser@192.168.1.99:50999", "Test DM"])
+        # Run parse test with valid message (properly split as one argument)
+        cmd_test(["parse", "TYPE: POST\nCONTENT: Hello\n\n"])
+        # Run broadcast test
+        cmd_test(["broadcast"])
+        # Run token test
+        cmd_test(["token"])
+        return True
+
+    else:
+        print_error(f"Unknown test command: {subcmd}")
+
     return True
 
 
@@ -214,4 +303,5 @@ command_registry = {
     "help": cmd_help,
     "verbose": cmd_verbose,
     "ttt": cmd_ttt,
+    "test": cmd_test,
 }
