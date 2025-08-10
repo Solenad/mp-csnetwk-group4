@@ -3,10 +3,22 @@ from rich.table import Table
 from network import my_info
 from network.message_sender import send_post, send_dm, send_follow, send_unfollow
 from network.broadcast import send_profile
-from network.peer_registry import get_peer_list
+from network.peer_registry import get_peer_list, add_peer, is_member_active
 from ui.utils import print_info, print_error, print_prompt, print_success
 from config import verbose_mode, followed_users
 import time
+from network.group_manager import create_group, send_group_update, send_group_message, get_group, get_user_groups, add_to_group, remove_from_group
+from network.message_sender import (
+    send_group_create,
+    send_group_message,
+    send_group_update
+)
+from network.group_manager import (
+    get_group,
+    get_user_groups,
+    add_to_group,
+    remove_from_group
+)
 
 console = Console()
 
@@ -173,10 +185,6 @@ def cmd_send(args):
     return True
 
 
-def cmd_groups(args):
-    print_info("Groups not implemented yet.")
-    return True
-
 
 def cmd_help(_args):
     print_info("Available commands:")
@@ -212,6 +220,99 @@ def print_verbose(msg):
     if verbose_mode:
         print_info(f"[VERBOSE] {msg}")
 
+def cmd_groups(args):
+    """Handle all group-related commands"""
+    if not args:
+        print_error("Usage: groups <create|list|info|message|add|remove> [arguments]")
+        return True
+    
+    subcommand = args[0]
+    
+    if subcommand == "create":
+        if len(args) < 2:
+            print_error("Usage: groups create <group_name> [member1,member2,...]")
+        else:
+            members = args[2].split(",") if len(args) > 2 else []
+            group_id = send_group_create(args[1], members, my_info)
+            print_success(f"Created group '{args[1]}' (ID: {group_id})")
+    
+    elif subcommand == "list":
+        user_groups = get_user_groups(my_info['user_id'])
+        if not user_groups:
+            print_info("You are not in any groups")
+        else:
+            table = Table(title="Your Groups")
+            table.add_column("ID", style="cyan")
+            table.add_column("Name", style="magenta")
+            table.add_column("Members", style="green")
+            table.add_column("Status", style="yellow")
+            
+            for group in user_groups:
+                member_status = []
+                for member in group['members']:
+                    status = "✅" if is_member_active(member) else "❌"
+                    member_status.append(f"{member.split('@')[0]}{status}")
+                
+                table.add_row(
+                    group['id'],
+                    group['name'],
+                    ", ".join([m.split('@')[0] for m in group['members']]),
+                    ", ".join(member_status)
+                )
+            console.print(table)
+    
+    elif subcommand == "info":
+        if len(args) < 2:
+            print_error("Usage: groups info <group_id>")
+        else:
+            group = get_group(args[1])
+            if not group:
+                print_error("Group not found")
+            else:
+                print_info(f"Group: {group['name']} (ID: {args[1]})")
+                print_info(f"Creator: {group['creator'].split('@')[0]}")
+                print_info("Members:")
+                for member in group['members']:
+                    print(f" - {member.split('@')[0]}")
+    
+    elif subcommand == "message":
+        if len(args) < 3:
+            print_error("Usage: groups message <group_id> <message>")
+        else:
+            if send_group_message(args[1], " ".join(args[2:]), my_info):
+                print_success("Message sent to group")
+            else:
+                print_error("Failed to send group message")
+    
+    elif subcommand in ["add", "remove"]:
+        if len(args) < 3:
+            print_error(f"Usage: groups {subcommand} <group_id> <member1,member2,...>")
+        else:
+            members = args[2].split(",")
+            updated = []
+            for member in members:
+                if subcommand == "add":
+                    if add_to_group(args[1], member):
+                        updated.append(member)
+                else:
+                    if remove_from_group(args[1], member):
+                        updated.append(member)
+            
+            if updated:
+                send_group_update(
+                    args[1], 
+                    my_info['user_id'],
+                    added_members=updated if subcommand == "add" else [],
+                    removed_members=updated if subcommand == "remove" else []
+                )
+                print_success(f"Members {subcommand}ed: {', '.join(updated)}")
+            else:
+                print_error("No members were updated")
+    
+    else:
+        print_error("Unknown subcommand. Available: create, list, info, message, add, remove")
+    
+    return True
 
 def start_cli(info):
     global my_info

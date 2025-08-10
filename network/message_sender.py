@@ -1,7 +1,7 @@
 from network.peer_registry import get_peer_list, get_peer
 from network.broadcast import send_broadcast
 import socket
-from typing import Dict
+from typing import Dict, List
 import time
 import secrets
 from ui.utils import print_error, print_verbose
@@ -68,6 +68,37 @@ def send_dm(recipient_id: str, content: str, sender_info: Dict) -> bool:
 
     return send_unicast(message, (ip, port))
 
+from network.group_manager import create_group, send_group_update, send_group_message, add_to_group
+
+def send_group_create(group_name: str, member_ids: List[str], sender_info: Dict) -> str:
+    """Create and announce a new group with confirmation"""
+    group_id = create_group(group_name, sender_info['user_id'], member_ids)
+    
+    # Create the announcement message
+    message = (
+        "TYPE: GROUP_CREATE\n"
+        f"GROUP_ID: {group_id}\n"
+        f"GROUP_NAME: {group_name}\n"
+        f"CREATOR: {sender_info['user_id']}\n"
+        f"MEMBERS: {','.join([sender_info['user_id']] + member_ids)}\n"
+        f"TIMESTAMP: {int(time.time())}\n"
+        "\n"
+    )
+    
+    # Send to all members including self (for consistency)
+    all_members = [sender_info['user_id']] + member_ids
+    for member in all_members:
+        if member == sender_info['user_id']:
+            # Add creator to their own group list immediately
+            add_to_group(group_id, sender_info['user_id'])
+        else:
+            # Send to other members
+            peer = get_peer(member)
+            if peer:
+                if not send_unicast(message, (peer['ip'], peer['port'])):
+                    print_error(f"Failed to send group invite to {member}")
+    
+    return group_id
 
 def send_follow(user_id_to_follow, sender_info):
     peers = get_peer_list()

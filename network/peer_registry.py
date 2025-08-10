@@ -48,3 +48,14 @@ def clear_peers() -> None:
 def update_last_seen(user_id: str) -> None:
     if user_id in _peer_registry:
         _peer_registry[user_id]["last_seen"] = time.time()
+        
+        
+def is_member_active(user_id: str) -> bool:
+    """Check if a member is currently active"""
+    from network.peer_registry import get_peer
+    peer = get_peer(user_id)
+    if not peer:
+        return False
+    
+    # Consider active if seen in last 5 minutes
+    return time.time() - peer.get('last_seen', 0) < 300

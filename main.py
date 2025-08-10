@@ -9,7 +9,9 @@ import socket
 from config import verbose_mode
 from ui.utils import print_prompt
 from network.peer_registry import add_peer
-
+from network.group_manager import create_group, send_group_update, send_group_message, add_to_group, remove_from_group
+from network.message_sender import send_group_create, send_unicast
+from typing import Dict, List   
 
 def handle_message(message: str, addr: tuple) -> None:
     try:
@@ -45,6 +47,64 @@ def handle_message(message: str, addr: tuple) -> None:
                 flush=True,
             )
             print_prompt()
+            # Add to handle_message function in main.py
+        elif msg_type == "GROUP_CREATE":
+            group_id = content.get("GROUP_ID")
+            group_name = content.get("GROUP_NAME")
+            members = content.get("MEMBERS", "").split(",")
+            
+            if my_info['user_id'] in members:
+                # Confirm we're actually a member
+                if add_to_group(group_id, my_info['user_id']):
+                    print(f"\n[GROUP] Joined group '{group_name}' (ID: {group_id})\n")
+                    
+                    # Send confirmation back to creator
+                    if content.get("CREATOR") != my_info['user_id']:
+                        ack_msg = (
+                            "TYPE: GROUP_ACK\n"
+                            f"GROUP_ID: {group_id}\n"
+                            f"MEMBER: {my_info['user_id']}\n"
+                            f"STATUS: JOINED\n"
+                            "\n"
+                        )
+                        creator = content.get("CREATOR")
+                        if creator:
+                            peer = get_peer(creator)
+                            if peer:
+                                send_unicast(ack_msg, (peer['ip'], peer['port']))
+                
+                print_prompt()
+    
+        elif msg_type == "GROUP_ACK":
+            group_id = content.get("GROUP_ID")
+            member = content.get("MEMBER")
+            status = content.get("STATUS")
+            
+            if status == "JOINED":
+                print(f"\n[GROUP] {member.split('@')[0]} joined group {group_id}\n")
+                print_prompt()
+
+        elif msg_type == "GROUP_UPDATE":
+            group_id = content.get("GROUP_ID")
+            added = content.get("ADDED", "").split(",")
+            removed = content.get("REMOVED", "").split(",")
+            
+            if user_id in added:
+                add_to_group(group_id, user_id)
+                print(f"\n[GROUP] Added to group '{content.get('GROUP_NAME')}'\n", end="", flush=True)
+            elif user_id in removed:
+                remove_from_group(group_id, user_id)
+                print(f"\n[GROUP] Removed from group '{content.get('GROUP_NAME')}'\n", end="", flush=True)
+            print_prompt()
+
+        elif msg_type == "GROUP_MESSAGE":
+            group_id = content.get("GROUP_ID")
+            sender = content.get("FROM")
+            message = content.get("CONTENT")
+            
+            if group_id in _groups and sender != my_info['user_id']:
+                print(f"\n[GROUP {_groups[group_id]['name']}] {sender}: {message}\n", end="", flush=True)
+                print_prompt()
         elif msg_type == "DM":
             token = content.get("TOKEN", "").split("|")
             if len(token) != 3 or token[2] != "chat":
