@@ -21,7 +21,6 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
-
 def get_subnet_broadcast():
     system = platform.system().lower()
 
@@ -67,7 +66,6 @@ def get_subnet_broadcast():
 
     # Fallback
     return "255.255.255.255"
-
 
 def get_broadcast_ip():
     """
@@ -175,6 +173,7 @@ def send_broadcast(message, target_ports=None):
     ports = target_ports if target_ports else list(range(50999, 50999 + 100))
 
     try:
+        broadcast_ip = get_broadcast_ip()
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             for target in broadcast_targets:
