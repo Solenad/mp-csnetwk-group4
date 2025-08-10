@@ -3,12 +3,14 @@ from rich.console import Console
 from rich.table import Table
 from network import my_info
 from network.message_sender import send_post, send_dm, send_follow, send_unfollow
-from network.broadcast import send_profile
+from network.broadcast import send_profile, get_mime_type
 from network.peer_registry import get_peer_list
 from network.tictactoe import send_invite, send_move
 from ui.utils import print_info, print_error, print_prompt, print_success, print_verbose
 import config
 import time
+import os
+import base64
 
 console = Console()
 
@@ -102,8 +104,7 @@ def cmd_send(args):
                 from network.broadcast import get_subnet_broadcast
 
                 print(
-                    f"[hello] Sending PROFILE broadcast to {
-                      get_subnet_broadcast()}:50999"
+                    f"[hello] Sending PROFILE broadcast to {get_subnet_broadcast()}:50999"
                 )
             send_profile(my_info)
             print_success("Profile broadcast sent to network")
@@ -135,6 +136,7 @@ def cmd_help(_args):
         "groups                            - Group management (not implemented yet)",
         "ttt invite <username> <X|O>       - Invite a player to TicTacToe",
         "ttt move <game_id> <pos>          - Make a TicTacToe move",
+        "setpfp <image_path>               - Set an avatar",
         "verbose [on|off]                  - Toggle or set verbose mode (RFC-format output)",
         "help                              - Show this help message",
     ]
@@ -149,14 +151,12 @@ def cmd_verbose(args):
         # Toggle instead of just showing
         config.verbose_mode = not config.verbose_mode
         print_success(
-            f"Verbose mode {
-                'enabled' if config.verbose_mode else 'disabled'}"
+            f"Verbose mode {'enabled' if config.verbose_mode else 'disabled'}"
         )
     elif args[0] in ["on", "off"]:
         config.verbose_mode = args[0] == "on"
         print_success(
-            f"Verbose mode {
-                'enabled' if config.verbose_mode else 'disabled'}"
+            f"Verbose mode {'enabled' if config.verbose_mode else 'disabled'}"
         )
     else:
         print_error("Usage: verbose [on|off]")
@@ -178,6 +178,24 @@ def cmd_ttt(args):
         print_error("Usage: ttt invite <username> <X|O> | ttt move <game_id> <pos>")
     return True
 
+def cmd_setpfp(args):
+    if not args:
+        print_error("Usage: setpfp <image_path>")
+        return True
+
+    img_path = args[0]
+    if not os.path.isfile(img_path):
+        print_error(f"File not found: {img_path}")
+        return True
+
+    with open(img_path, "rb") as avatar_file:
+        my_info["avatar_data"] = base64.b64encode(avatar_file.read())
+        my_info["avatar_type"] = get_mime_type(img_path)
+    print_success(f"Profile picture updated to {img_path}")
+
+    # Send updated profile to peers
+    send_profile(my_info)
+    return True
 
 def start_cli(info):
     global my_info
@@ -214,4 +232,5 @@ command_registry = {
     "help": cmd_help,
     "verbose": cmd_verbose,
     "ttt": cmd_ttt,
+    "setpfp": cmd_setpfp,
 }

@@ -48,8 +48,7 @@ def start_listening(callback):
                 sock.close()
             if attempt == MAX_PORT_ATTEMPTS - 1:
                 print(
-                    f"Error: Could not bind to port after {
-                        MAX_PORT_ATTEMPTS} attempts"
+                    f"Error: Could not bind to port after {MAX_PORT_ATTEMPTS} attempts"
                 )
                 return None, None
 
@@ -58,7 +57,7 @@ def start_listening(callback):
             try:
                 data, addr = sock.recvfrom(BUFFER_SIZE)
                 if data:
-                    message = data.decode("utf-8", errors="ignore").strip()
+                    message = data.decode("utf-8", errors="ignore")
                     if message:
                         callback(message, addr)
             except Exception as e:

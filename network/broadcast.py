@@ -77,21 +77,10 @@ def send_profile(my_info: Dict) -> None:
         f"DISPLAY_NAME: {my_info['username']}\n"
         f"STATUS: {my_info.get('status', 'Active')}\n"
         f"PORT: {my_info.get('port', 50999)}\n"
+        f"AVATAR_TYPE: {my_info['avatar_type']}\n"
+        f"AVATAR_ENCODING: base64\n"
+        f"AVATAR_DATA: {my_info['avatar_data']}\n"
     )
-
-    avatar_path = my_info.get("avatar_path")
-    if avatar_path and os.path.exists(avatar_path):
-        try:
-            with open(avatar_path, "rb") as f:
-                avatar_data = base64.b64encode(f.read()).decode("utf-8")
-                message += (
-                    f"AVATAR_TYPE: {get_mime_type(avatar_path)}\n"
-                    "AVATAR_ENCODING: base64\n"
-                    f"AVATAR_DATA: {avatar_data}\n"
-                )
-        except Exception as e:
-            if verbose_mode:
-                print(f"Failed to include avatar: {e}")
 
     message += "\n\n"
     send_broadcast(message)
@@ -125,15 +114,13 @@ def send_broadcast(message, target_ports=None):
             except Exception as e:
                 if verbose_mode:
                     print(
-                        f"Could not bind broadcast socket to {
-                            local_ip}: {e}"
+                        f"Could not bind broadcast socket to {local_ip}: {e}"
                     )
 
             for port in ports:
                 if verbose_mode:
                     print(
-                        f"[broadcast] sending from {
-                          local_ip} -> {subnet_broadcast}:{port}"
+                        f"[broadcast] sending from {local_ip} -> {subnet_broadcast}:{port}"
                     )
                 sock.sendto(message.encode("utf-8"), (subnet_broadcast, port))
     except Exception as e:
@@ -155,4 +142,6 @@ my_info = {
     "hostname": socket.gethostname(),
     "user_id": f"User{int(time.time()) % 1000}@{get_local_ip()}",
     "status": "Available",
+    "avatar_type": None,
+    "avatar_data": None
 }

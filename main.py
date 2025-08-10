@@ -79,8 +79,7 @@ def handle_message(message: str, addr: tuple) -> None:
                 )
             else:
                 print(
-                    f"\n[DM from {display_name}]: {
-                        content.get('CONTENT', '')}\n"
+                    f"\n[DM from {display_name}]: {content.get('CONTENT', '')}\n"
                 )
             print_prompt()
             if content.get("MESSAGE_ID"):
@@ -91,12 +90,23 @@ def handle_message(message: str, addr: tuple) -> None:
             if initial_discovery:
                 return  # skip flood during discovery
 
-            if config.verbose_mode:
+            if config.verbose_mode and content.get('AVATAR_DATA', '') == "None":
                 print_verbose(
                     f"\nTYPE: PROFILE\n"
                     f"USER_ID: {user_id}\n"
                     f"DISPLAY_NAME: {display_name}\n"
                     f"STATUS: {content.get('STATUS', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n\n"
+                )
+            elif config.verbose_mode and content.get('AVATAR_DATA', '') != "None":
+                print_verbose(
+                    f"\nTYPE: PROFILE\n"
+                    f"USER_ID: {user_id}\n"
+                    f"DISPLAY_NAME: {display_name}\n"
+                    f"STATUS: {content.get('STATUS', '')}\n"
+                    f"AVATAR_TYPE: {content.get('AVATAR_TYPE', '')}\n"
+                    f"AVATAR_ENCODING: base64\n"
+                    f"AVATAR_DATA: {content.get('AVATAR_DATA', '')}\n"
                     f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n\n"
                 )
             else:
@@ -199,8 +209,7 @@ def handle_message(message: str, addr: tuple) -> None:
         else:
             if config.verbose_mode:
                 print_verbose(
-                    f"[{time.time()}] Unknown message type: {
-                        msg_type}\n{content}"
+                    f"[{time.time()}] Unknown message type: {msg_type}\n{content}"
                 )
 
     except Exception as e:
