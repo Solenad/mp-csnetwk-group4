@@ -457,6 +457,7 @@ command_registry = {
     "groups": cmd_groups,
     "group_create": cmd_group_create,
     "group_update": cmd_group_update,
+    "group_message": cmd_group_message,
     "help": cmd_help,
     "verbose": cmd_verbose,
     "ttt": cmd_ttt,
