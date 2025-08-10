@@ -1,7 +1,7 @@
 # main.py
 from network.socket_manager import start_listening
 from network.message_sender import send_ack
-from network.broadcast import my_info, send_immediate_discovery
+from network.broadcast import my_info, send_immediate_discovery, send_ping, send_profile
 from ui.cli import start_cli
 from network.peer_registry import add_peer
 import threading
@@ -99,7 +99,9 @@ def handle_message(message: str, addr: tuple) -> None:
 
         elif msg_type == "PING":
             if config.verbose_mode:
-                print_verbose(f"\nTYPE: PING\n" f"USER_ID: {user_id}\n\n")
+                print_verbose(f"\nTYPE: PING\nUSER_ID: {user_id}\n\n")
+            # Respond with our PROFILE per RFC
+            send_profile(my_info)
 
         elif msg_type == "FOLLOW":
             if config.verbose_mode:
@@ -165,8 +167,23 @@ if __name__ == "__main__":
         }
     )
 
-    # Send immediate discovery bursts
-    threading.Thread(
-        target=send_immediate_discovery, args=(my_info,), daemon=True
-    ).start()
+    # Enhanced discovery process
+    def discovery_loop():
+        """Send PROFILE every 300 seconds (5 minutes) per RFC"""
+        while True:
+            send_profile(my_info)  # Send full profile first
+            time.sleep(300)  # Wait 5 minutes per RFC
+
+    # Start discovery thread
+    threading.Thread(target=discovery_loop, daemon=True).start()
+
+    # Also send PING messages periodically
+    def ping_loop():
+        """Send PING every 60 seconds (more frequent than PROFILE)"""
+        while True:
+            send_ping(my_info)
+            time.sleep(10)
+
+    threading.Thread(target=ping_loop, daemon=True).start()
+
     start_cli(my_info)
