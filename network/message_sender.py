@@ -27,8 +27,7 @@ def send_post(content, sender_info):
         f"CONTENT: {content}\n"
         f"TTL: {DEFAULT_TTL}\n"
         f"MESSAGE_ID: {secrets.token_hex(4)}\n"
-        f"TOKEN: {sender_info['user_id']}|{
-            timestamp + DEFAULT_TTL}|broadcast\n"
+        f"TOKEN: {sender_info['user_id']}|{timestamp + DEFAULT_TTL}|broadcast\n"
         "\n"
     )
     send_broadcast(message)
@@ -81,8 +80,7 @@ def send_follow(user_id_to_follow, sender_info):
                 f"TO: {peer['user_id']}\n"
                 f"TIMESTAMP: {timestamp}\n"
                 f"MESSAGE_ID: {secrets.token_hex(4)}\n"
-                f"TOKEN: {sender_info['user_id']}|{
-                    timestamp + DEFAULT_TTL}|follow\n"
+                f"TOKEN: {sender_info['user_id']}|{timestamp + DEFAULT_TTL}|follow\n"
                 "\n"
             )
 
@@ -92,8 +90,7 @@ def send_follow(user_id_to_follow, sender_info):
             peer_port = int(port)
 
             print_verbose(
-                f"Sending FOLLOW to {peer_ip}:{
-                    peer_port} for {peer['user_id']}"
+                f"Sending FOLLOW to {peer_ip}:{peer_port} for {peer['user_id']}"
             )
 
             return send_unicast(message, (peer_ip, peer_port))
@@ -112,8 +109,7 @@ def send_unfollow(user_id_to_unfollow, sender_info):
                 f"TO: {peer['user_id']}\n"
                 f"TIMESTAMP: {timestamp}\n"
                 f"MESSAGE_ID: {secrets.token_hex(4)}\n"
-                f"TOKEN: {sender_info['user_id']}|{
-                    timestamp + DEFAULT_TTL}|follow\n"
+                f"TOKEN: {sender_info['user_id']}|{timestamp + DEFAULT_TTL}|follow\n"
                 "\n"
             )
 
@@ -123,8 +119,7 @@ def send_unfollow(user_id_to_unfollow, sender_info):
             peer_port = int(port)
 
             print_verbose(
-                f"Sending UNFOLLOW to {peer_ip}:{
-                    peer_port} for {peer['user_id']}"
+                f"Sending UNFOLLOW to {peer_ip}:{peer_port} for {peer['user_id']}"
             )
 
             return send_unicast(message, (peer_ip, peer_port))
@@ -144,8 +139,7 @@ def send_ack(message_id: str, recipient_user_id: str):
             port = int(port.strip())
         except Exception:
             print_error(
-                f"Cannot send ACK — invalid user ID format: {
-                    recipient_user_id}"
+                f"Cannot send ACK — invalid user ID format: {recipient_user_id}"
             )
             return False
     else:
@@ -154,8 +148,7 @@ def send_ack(message_id: str, recipient_user_id: str):
 
     ack_message = (
         "TYPE: ACK\n"
-        f"MESSAGE_ID: {
-            message_id}\n"
+        f"MESSAGE_ID: {message_id}\n"
         "STATUS: RECEIVED\n"
         "\n"
     )

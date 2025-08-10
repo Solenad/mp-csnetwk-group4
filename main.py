@@ -1,4 +1,5 @@
 # main.py
+import network
 from network.socket_manager import start_listening
 from network.message_sender import send_ack
 from network.broadcast import send_profile, my_info, send_immediate_discovery
@@ -8,7 +9,7 @@ import threading
 import socket
 from config import verbose_mode
 from ui.utils import print_prompt
-
+import network.pfp_tcp 
 
 def handle_message(message: str, addr: tuple) -> None:
     try:
@@ -38,8 +39,7 @@ def handle_message(message: str, addr: tuple) -> None:
 
         if msg_type == "POST":
             print(
-                f"\n[POST] {content.get('DISPLAY_NAME', user_id)}: {
-                    content.get('CONTENT', '')}\n",
+                f"\n[POST] {content.get('DISPLAY_NAME', user_id)}: {content.get('CONTENT', '')}\n",
                 end="",
                 flush=True,
             )
@@ -49,8 +49,7 @@ def handle_message(message: str, addr: tuple) -> None:
             if len(token) != 3 or token[2] != "chat":
                 if verbose_mode:
                     print(
-                        f"\n[WARNING] Invalid DM token from {
-                            user_id}\n>> ",
+                        f"\n[WARNING] Invalid DM token from {user_id}\n>> ",
                         end="",
                         flush=True,
                     )
@@ -58,8 +57,7 @@ def handle_message(message: str, addr: tuple) -> None:
 
             display_name = content.get("FROM", user_id).split("@")[0]
             print(
-                f"\n[DM from {display_name}]: {
-                    content.get('CONTENT', '')}\n",
+                f"\n[DM from {display_name}]: {content.get('CONTENT', '')}\n",
                 end="",
                 flush=True,
             )
@@ -71,14 +69,52 @@ def handle_message(message: str, addr: tuple) -> None:
             if message_id and sender_id:
                 send_ack(message_id, sender_id)
 
+        elif msg_type == "PFP_REQUEST":
+            # Someone wants our profile picture
+            from network.pfp_tcp import serve_profile_b64_and_get_port
+            from network.message_sender import send_udp_message  # small helper to send UDP text
+
+            my_b64 = my_info.get("avatar_b64") or my_info.get("pfp", "") or ""
+            if not my_b64:
+                if verbose_mode:
+                    print(f"[VERBOSE] No PFP to send to {user_id}")
+            else:
+                port = serve_profile_b64_and_get_port(my_info["username"])
+                send_udp_message(addr[0], addr[1], f"TYPE:PFP_PORT\nPORT:{port}")
+
+        elif msg_type == "PFP_PORT":
+            # Connect via TCP and fetch the PFP Base64
+            from network.pfp_tcp import receive_profile_b64_from
+            try:
+                tcp_port = int(content.get("PORT", "").strip())
+                peer_ip = addr[0]
+                b64 = receive_profile_b64_from(peer_ip, tcp_port)
+                if b64:
+                    update_peer_avatar(user_id, b64)
+                    if verbose_mode:
+                        print(f"[VERBOSE] Received PFP from {user_id} via TCP {tcp_port}")
+                else:
+                    if verbose_mode:
+                        print(f"[VERBOSE] Failed to fetch PFP from {user_id} at {peer_ip}:{tcp_port}")
+            except Exception as e:
+                if verbose_mode:
+                    print(f"[VERBOSE] Error processing PFP_PORT: {e}")
+                        
+        elif msg_type in ["PING", "PROFILE"]:
+    # Store avatar if provided
+            avatar_data = content.get("AVATAR_DATA")
+            if avatar_data:
+                from network.peer_registry import update_peer_avatar
+                update_peer_avatar(user_id, avatar_data)
+
+            send_profile(my_info)
         elif msg_type in ["PING", "PROFILE"]:
             send_profile(my_info)
 
         elif msg_type == "FOLLOW":
             sender = content.get("FROM", user_id)
             print(
-                f"\n[FOLLOW] User {
-                    sender} has followed you\n",
+                f"\n[FOLLOW] User {sender} has followed you\n",
                 end="",
                 flush=True,
             )
@@ -87,8 +123,7 @@ def handle_message(message: str, addr: tuple) -> None:
         elif msg_type == "UNFOLLOW":
             sender = content.get("FROM", user_id)
             print(
-                f"\n[UNFOLLOW] User {
-                    sender} has unfollowed you\n",
+                f"\n[UNFOLLOW] User {sender} has unfollowed you\n",
                 end="",
                 flush=True,
             )
@@ -96,8 +131,7 @@ def handle_message(message: str, addr: tuple) -> None:
         elif msg_type == "ACK":
             if verbose_mode:
                 print(
-                    f"[VERBOSE] Received ACK for MESSAGE_ID: {
-                        content.get('MESSAGE_ID')}"
+                    f"[VERBOSE] Received ACK for MESSAGE_ID: {content.get('MESSAGE_ID')}"
                 )
 
     except Exception as e:

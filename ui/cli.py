@@ -7,9 +7,29 @@ from network.peer_registry import get_peer_list
 from ui.utils import print_info, print_error, print_prompt, print_success
 from config import verbose_mode, followed_users
 import time
+import base64
+import os
 
 console = Console()
 
+
+def cmd_setpfp(args):
+    if not args:
+        print_error("Usage: setpfp <image_path>")
+        return True
+
+    img_path = args[0]
+    if not os.path.isfile(img_path):
+        print_error(f"File not found: {img_path}")
+        return True
+
+    my_info["avatar_path"] = img_path
+    print_success(f"Profile picture updated to {img_path}")
+
+    # Send updated profile to peers
+    from network.broadcast import send_profile
+    send_profile(my_info)
+    return True
 
 def cmd_whoami(_args):
     print_info(f"I am '{my_info['username']}' on '{my_info['hostname']}'")
@@ -132,14 +152,12 @@ def cmd_verbose(args):
     global verbose_mode
     if not args or args[0] not in ["on", "off"]:
         print_info(
-            f"Verbose mode is currently {
-                'on' if verbose_mode else 'off'}"
+            f"Verbose mode is currently {'on' if verbose_mode else 'off'}"
         )
     else:
         verbose_mode = args[0] == "on"
         print_success(
-            f"Verbose mode {
-                'enabled' if verbose_mode else 'disabled'}"
+            f"Verbose mode {'enabled' if verbose_mode else 'disabled'}"
         )
     return True
 
@@ -174,6 +192,41 @@ def start_cli(info):
             print_error("\nInterrupted.")
             break
 
+def cmd_viewpfp(args):
+    if not args:
+        print_error("Usage: viewpfp <user_id>")
+        return True
+
+    from network.peer_registry import get_peer
+    import base64
+
+    peer = get_peer(args[0])
+    if not peer:
+        print_error(f"Peer {args[0]} not found")
+        return True
+
+    avatar_b64 = peer.get("avatar_b64")
+    if not avatar_b64:
+        print_info("Peer has no avatar set.")
+        return True
+
+    filename = f"{args[0].replace(':', '_')}_avatar.png"
+    with open(filename, "wb") as f:
+        f.write(base64.b64decode(avatar_b64))
+    print_success(f"Avatar saved as {filename}")
+    return True
+
+def cmd_getpfp(args):
+    if not args:
+        print_error("Usage: getpfp <user_id>")
+        return True
+    user_id = args[0]
+    from network.message_sender import request_pfp
+    if request_pfp(user_id, my_info):
+        print_success(f"Requested PFP from {user_id}. Waiting for TCP transfer...")
+    else:
+        print_error(f"Could not send PFP request to {user_id}")
+    return True
 
 command_registry = {
     "exit": cmd_exit,
@@ -183,4 +236,7 @@ command_registry = {
     "groups": cmd_groups,
     "help": cmd_help,
     "verbose": cmd_verbose,
+    "setpfp": cmd_setpfp,
+    "viewpfp": cmd_viewpfp,
+    "getpfp": cmd_getpfp,
 }
