@@ -9,15 +9,15 @@ from network.broadcast import (
     send_immediate_discovery,
 )
 from ui.cli import start_cli
-from network.peer_registry import add_peer
+from network.peer_registry import add_peer, get_peer
 from network.tictactoe import handle_invite, handle_move, handle_result
 from ui.utils import print_verbose, print_prompt
 import threading
-import socket
 import config
 import time
 
 PROFILE_RESEND_INTERVAL = 10
+initial_discovery = True
 
 
 def handle_message(message: str, addr: tuple) -> None:
@@ -36,9 +36,6 @@ def handle_message(message: str, addr: tuple) -> None:
             return
 
         if user_id == my_info["user_id"]:
-            return
-
-        if addr[0] == get_local_ip():
             return
 
         # Add/update peer info
@@ -91,6 +88,9 @@ def handle_message(message: str, addr: tuple) -> None:
 
         # --- PROFILE ---
         elif msg_type == "PROFILE":
+            if initial_discovery:
+                return  # skip flood during discovery
+
             if config.verbose_mode:
                 print_verbose(
                     f"\nTYPE: PROFILE\n"
@@ -100,14 +100,11 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n\n"
                 )
             else:
-                print(
-                    f"\n{display_name}: {
-                        content.get('STATUS', '')}\n"
-                )
+                print(f"\n{display_name}: {content.get('STATUS', '')}\n")
             print_prompt()
 
         # --- PING ---
-        elif msg_type == "PING" and addr[0] != get_local_ip():
+        elif msg_type == "PING":
             if config.verbose_mode:
                 print_verbose(f"\nTYPE: PING\nUSER_ID: {user_id}\n\n")
             send_profile(my_info)
@@ -224,8 +221,15 @@ if __name__ == "__main__":
         }
     )
 
-    # Send immediate discovery bursts so peers see us right away
-    send_immediate_discovery(my_info)
+    def limited_discovery():
+        global initial_discovery
+        start_time = time.time()
+        while time.time() - start_time < 5:
+            send_immediate_discovery(my_info)
+            time.sleep(1)
+        initial_discovery = False
+
+    threading.Thread(target=limited_discovery, daemon=True).start()
 
     def ping_loop():
         while True:

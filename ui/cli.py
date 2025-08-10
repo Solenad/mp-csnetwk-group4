@@ -98,6 +98,13 @@ def cmd_send(args):
         if subargs:
             print_error("Usage: send hello (no arguments needed)")
         else:
+            if config.verbose_mode:
+                from network.broadcast import get_subnet_broadcast
+
+                print(
+                    f"[hello] Sending PROFILE broadcast to {
+                      get_subnet_broadcast()}:50999"
+                )
             send_profile(my_info)
             print_success("Profile broadcast sent to network")
 
