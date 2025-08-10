@@ -25,16 +25,6 @@ def handle_message(message: str, addr: tuple) -> None:
         msg_type = content.get("TYPE")
         user_id = content.get("USER_ID") or content.get("FROM")
 
-        if not user_id:
-            if config.verbose_mode:
-                print_verbose(f"[{time.time()}] Message without USER_ID ignored")
-            return
-
-        if user_id == my_info["user_id"]:
-            if config.verbose_mode:
-                print_verbose(f"[{time.time()}] Ignoring own message")
-            return
-
         # Add/update peer information
         display_name = content.get("DISPLAY_NAME", user_id.split("@")[0])
         add_peer(
@@ -182,7 +172,7 @@ if __name__ == "__main__":
         """Send PING every 60 seconds (more frequent than PROFILE)"""
         while True:
             send_ping(my_info)
-            time.sleep(10)
+            time.sleep(60)
 
     threading.Thread(target=ping_loop, daemon=True).start()
 
