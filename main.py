@@ -1,7 +1,7 @@
 # main.py
 from network.socket_manager import start_listening
 from network.message_sender import send_ack
-from network.broadcast import send_ping, send_profile, my_info
+from network.broadcast import send_ping, send_profile, my_info, get_local_ip
 from ui.cli import start_cli
 from network.peer_registry import add_peer
 from network.tictactoe import handle_invite, handle_move, handle_result
@@ -30,6 +30,9 @@ def handle_message(message: str, addr: tuple) -> None:
             return
 
         if user_id == my_info["user_id"]:
+            return
+
+        if addr[0] == get_local_ip():
             return
 
         # Add/update peer info
@@ -98,7 +101,7 @@ def handle_message(message: str, addr: tuple) -> None:
             print_prompt()
 
         # --- PING ---
-        elif msg_type == "PING":
+        elif msg_type == "PING" and addr[0] != get_local_ip():
             if config.verbose_mode:
                 print_verbose(f"\nTYPE: PING\nUSER_ID: {user_id}\n\n")
             send_profile(my_info)
