@@ -4,7 +4,7 @@ from rich.table import Table
 from network import my_info
 from network.message_sender import send_post, send_dm, send_follow, send_unfollow
 from network.broadcast import send_profile
-from network.file_transfer import send_file_offer, send_file_chunks
+from network.file_transfer import send_file_offer, send_file_chunks, pending_files
 from network.peer_registry import get_peer_list
 from network.tictactoe import send_invite, send_move
 from ui.utils import print_info, print_error, print_prompt, print_success, print_verbose
@@ -75,19 +75,27 @@ def cmd_send(args):
 
     elif subcommand == "file":
         if len(subargs) < 2:
-            print_error("Usage: send file <peer_id> <file_path>")
+            print_error("Usage: send file <user_id> <file_path>")
         else:
-            peer_id = subargs[0]
+            user_id = subargs[0]
             file_path = " ".join(subargs[1:])  # allow spaces in filename
             try:
-                fileid = send_file_offer(file_path, peer_id)
-                send_file_chunks(file_path, peer_id, fileid)
-                print_success(f"File '{file_path}' sent successfully")
+                # Step 1: Send FILE_OFFER
+                fileid = send_file_offer(file_path, user_id)
+                print_success(f"File offer sent to {user_id} for '{file_path}'")
+
+                # Step 2: Immediately send chunks (RFC: no handshake before sending)
+                send_file_chunks(file_path, user_id, fileid)
+                print_success(f"File transfer of '{file_path}' complete")
+
             except FileNotFoundError:
                 print_error(f"File not found: {file_path}")
+            except ValueError as ve:
+                print_error(str(ve))
             except Exception as e:
                 print_error(f"Error sending file: {e}")
-    
+
+
     elif subcommand == "follow":
         if not subargs:
             print_error("Usage: send follow <username>")
@@ -138,7 +146,7 @@ def cmd_help(_args):
         "peers                             - List known peers on the network",
         "send post <message>               - Broadcast a public post",
         "send dm <username> <message>      - Send a direct message",
-        "send file <peer_id> <file_path>   - Send a file to a peer",
+        "send file <user_id> <file_path>   - Send a file to a peer",
         "send follow <username>            - Send a follow request",
         "send unfollow <username>          - Unfollow a user",
         "send hello                        - Broadcast your profile to the network",

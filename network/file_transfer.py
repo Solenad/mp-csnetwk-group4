@@ -26,11 +26,11 @@ def send_file_offer(file_path, to_user):
     fileid = os.urandom(4).hex()
     timestamp = int(time.time())
 
-    token = generate_token(my_info["USER_ID"], ttl=3600, scope="file")
+    token = generate_token(my_info["user_id"], ttl=3600, scope="file")
 
     message = (
         f"TYPE: FILE_OFFER\n"
-        f"FROM: {my_info['USER_ID']}\n"
+        f"FROM: {my_info['user_id']}\n"
         f"TO: {to_user}\n"
         f"FILENAME: {filename}\n"
         f"FILESIZE: {filesize}\n"
@@ -53,7 +53,7 @@ def send_file_chunks(file_path, to_user, fileid, chunk_size=256):
         file_data = f.read()
 
     total_chunks = math.ceil(len(file_data) / chunk_size)
-    token = generate_token(my_info["USER_ID"], ttl=3600, scope="file")
+    token = generate_token(my_info["user_id"], ttl=3600, scope="file")
 
     for i in range(total_chunks):
         chunk_data = file_data[i * chunk_size:(i + 1) * chunk_size]
@@ -61,7 +61,7 @@ def send_file_chunks(file_path, to_user, fileid, chunk_size=256):
 
         message = (
             f"TYPE: FILE_CHUNK\n"
-            f"FROM: {my_info['USER_ID']}\n"
+            f"FROM: {my_info['user_id']}\n"
             f"TO: {to_user}\n"
             f"FILEID: {fileid}\n"
             f"CHUNK_INDEX: {i}\n"
@@ -108,7 +108,6 @@ def handle_file_offer(msg_dict):
 
     if config.verbose_mode:
         print_verbose(f"[FILE_OFFER] {msg_dict['FROM']} -> {filename} ({filesize} bytes), accepted={accepted}")
-
 
 def handle_file_chunk(msg_dict):
     """
@@ -159,7 +158,7 @@ def send_file_received(to_user, fileid):
     timestamp = int(time.time())
     message = (
         f"TYPE: FILE_RECEIVED\n"
-        f"FROM: {my_info['USER_ID']}\n"
+        f"FROM: {my_info['user_id']}\n"
         f"TO: {to_user}\n"
         f"FILEID: {fileid}\n"
         f"STATUS: COMPLETE\n"
