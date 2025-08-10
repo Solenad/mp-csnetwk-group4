@@ -1,13 +1,14 @@
 # main.py
 from network.socket_manager import start_listening
 from network.message_sender import send_ack
-from network.broadcast import my_info, send_immediate_discovery, send_ping, send_profile
+from network.broadcast import send_ping, send_profile, my_info
 from ui.cli import start_cli
 from network.peer_registry import add_peer
+from network.tictactoe import handle_invite, handle_move, handle_result
+from ui.utils import print_verbose, print_prompt
 import threading
 import socket
 import config
-from ui.utils import print_verbose, print_prompt
 import time
 
 PROFILE_RESEND_INTERVAL = 10
@@ -31,7 +32,7 @@ def handle_message(message: str, addr: tuple) -> None:
         if user_id == my_info["user_id"]:
             return
 
-        # Add/update peer information
+        # Add/update peer info
         display_name = content.get("DISPLAY_NAME", user_id.split("@")[0])
         add_peer(
             user_id=user_id,
@@ -40,7 +41,7 @@ def handle_message(message: str, addr: tuple) -> None:
             display_name=display_name,
         )
 
-        # Handle message types according to RFC
+        # --- POST ---
         if msg_type == "POST":
             if user_id in config.followed_users:
                 if config.verbose_mode:
@@ -58,6 +59,7 @@ def handle_message(message: str, addr: tuple) -> None:
                     print(f"\n{display_name}: {content.get('CONTENT', '')}\n")
                 print_prompt()
 
+        # --- DM ---
         elif msg_type == "DM":
             if config.verbose_mode:
                 print_verbose(
@@ -75,11 +77,10 @@ def handle_message(message: str, addr: tuple) -> None:
                         content.get('CONTENT', '')}\n"
                 )
             print_prompt()
-
-            # Send ACK if needed
             if content.get("MESSAGE_ID"):
                 send_ack(content["MESSAGE_ID"], user_id)
 
+        # --- PROFILE ---
         elif msg_type == "PROFILE":
             if config.verbose_mode:
                 print_verbose(
@@ -90,15 +91,19 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n\n"
                 )
             else:
-                print(f"\n{display_name}: {content.get('STATUS', '')}\n")
+                print(
+                    f"\n{display_name}: {
+                        content.get('STATUS', '')}\n"
+                )
             print_prompt()
 
+        # --- PING ---
         elif msg_type == "PING":
             if config.verbose_mode:
                 print_verbose(f"\nTYPE: PING\nUSER_ID: {user_id}\n\n")
-            # Respond with our PROFILE per RFC
             send_profile(my_info)
 
+        # --- FOLLOW ---
         elif msg_type == "FOLLOW":
             if config.verbose_mode:
                 print_verbose(
@@ -110,9 +115,10 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             else:
-                print(f"\nUser {display_name} has followed you\n")
+                print(f"\n{display_name} has followed you\n")
             print_prompt()
 
+        # --- UNFOLLOW ---
         elif msg_type == "UNFOLLOW":
             if config.verbose_mode:
                 print_verbose(
@@ -124,20 +130,66 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             else:
-                print(f"\nUser {display_name} has unfollowed you\n")
+                print(f"\n{display_name} has unfollowed you\n")
             print_prompt()
 
+        # --- ACK ---
         elif msg_type == "ACK":
             if config.verbose_mode:
                 print_verbose(
                     f"\nTYPE: ACK\n"
                     f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
                     f"STATUS: {content.get('STATUS', '')}\n\n"
-                    f"Field Descriptions:\n"
-                    f"MESSAGE_ID: Identifier of original message.\n"
-                    f"STATUS: e.g., RECEIVED.\n"
+                    f"Field Descriptions:\nMESSAGE_ID: Identifier of original message.\nSTATUS: e.g., RECEIVED.\n"
                 )
-            # Non-verbose: no output per RFC
+
+        # --- TicTacToe ---
+        elif msg_type == "TICTACTOE_INVITE":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: TICTACTOE_INVITE\n"
+                    f"FROM: {content.get('FROM', '')}\n"
+                    f"TO: {content.get('TO', '')}\n"
+                    f"GAMEID: {content.get('GAMEID', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"SYMBOL: {content.get('SYMBOL', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+            handle_invite(content, addr, my_info)
+            print_prompt()
+
+        elif msg_type == "TICTACTOE_MOVE":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: TICTACTOE_MOVE\n"
+                    f"FROM: {content.get('FROM', '')}\n"
+                    f"TO: {content.get('TO', '')}\n"
+                    f"GAMEID: {content.get('GAMEID', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"POSITION: {content.get('POSITION', '')}\n"
+                    f"SYMBOL: {content.get('SYMBOL', '')}\n"
+                    f"TURN: {content.get('TURN', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+            handle_move(content, addr, my_info)
+            print_prompt()
+
+        elif msg_type == "TICTACTOE_RESULT":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: TICTACTOE_RESULT\n"
+                    f"FROM: {content.get('FROM', '')}\n"
+                    f"TO: {content.get('TO', '')}\n"
+                    f"GAMEID: {content.get('GAMEID', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"RESULT: {content.get('RESULT', '')}\n"
+                    f"SYMBOL: {content.get('SYMBOL', '')}\n"
+                    f"WINNING_LINE: {content.get('WINNING_LINE', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n\n"
+                )
+            handle_result(content, addr, my_info)
+            print_prompt()
 
         else:
             if config.verbose_mode:
@@ -163,23 +215,10 @@ if __name__ == "__main__":
         }
     )
 
-    # # Enhanced discovery process
-    # def discovery_loop():
-    #     """Send PROFILE every 300 seconds (5 minutes) per RFC"""
-    #     while True:
-    #         send_profile(my_info)  # Send full profile first
-    #         time.sleep(300)  # Wait 5 minutes per RFC
-    #
-    # # Start discovery thread
-    # threading.Thread(target=discovery_loop, daemon=True).start()
-
-    # Also send PING messages periodically
     def ping_loop():
-        """Send PING every 300 seconds"""
         while True:
             send_ping(my_info)
             time.sleep(300)
 
     threading.Thread(target=ping_loop, daemon=True).start()
-
     start_cli(my_info)
