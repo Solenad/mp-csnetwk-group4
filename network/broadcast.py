@@ -23,6 +23,53 @@ def get_local_ip():
 
 
 def get_subnet_broadcast():
+    system = platform.system().lower()
+
+    try:
+        if system == "windows":
+            # Use ipconfig
+            result = subprocess.run(
+                ["ipconfig"], capture_output=True, text=True, check=True
+            ).stdout
+
+            # Extract IPv4 + subnet mask from ipconfig output
+            ipv4_match = re.search(r"IPv4 Address.*?: (\d+\.\d+\.\d+\.\d+)", result)
+            mask_match = re.search(r"Subnet Mask.*?: (\d+\.\d+\.\d+\.\d+)", result)
+
+            if ipv4_match and mask_match:
+                ip_str = ipv4_match.group(1)
+                mask_str = mask_match.group(1)
+                net = ipaddress.IPv4Network(f"{ip_str}/{mask_str}", strict=False)
+                return str(net.broadcast_address)
+
+        elif system == "linux":
+            # Use ip command
+            result = subprocess.run(
+                ["ip", "-4", "addr", "show", "scope", "global"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+
+            for line in result.splitlines():
+                line = line.strip()
+                if line.startswith("inet "):
+                    parts = line.split()
+                    if "brd" in parts:
+                        return parts[parts.index("brd") + 1]
+                    else:
+                        ip_cidr = parts[1]
+                        net = ipaddress.ip_network(ip_cidr, strict=False)
+                        return str(net.broadcast_address)
+
+    except Exception as e:
+        print(f"Failed to detect broadcast: {e}")
+
+    # Fallback
+    return "255.255.255.255"
+
+
+def get_subnet_broadcast():
     """
     Detect the LAN broadcast address without netifaces.
     Prefers 192.168.x.x (then other private ranges).
@@ -140,7 +187,6 @@ def send_broadcast(message, target_ports=None):
     ports = target_ports if target_ports else list(range(50999, 50999 + 100))
 
     try:
-        broadcast_ip = get_broadcast_ip()
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             for port in ports:
