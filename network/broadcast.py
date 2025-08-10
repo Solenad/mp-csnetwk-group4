@@ -76,10 +76,15 @@ def send_broadcast(message, target_ports=None):
 
 
 def send_immediate_discovery(my_info):
-    """Send rapid initial discovery packets"""
-    for _ in range(3):  # Send 3 quick PROFILEs
+    """Send initial discovery bursts per RFC"""
+    # Send 3 quick PROFILEs first
+    for _ in range(3):
         send_profile(my_info)
-        time.sleep(0.5)  # Short delay between packets
+        time.sleep(0.5)
+    # Then send PINGs to establish presence
+    for _ in range(3):
+        send_ping(my_info)
+        time.sleep(0.5)
 
 
 my_info = {
