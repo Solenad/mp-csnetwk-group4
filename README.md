@@ -19,6 +19,8 @@ PEROL, Francine Nicole T.
 
 ## Setup
 
+### Option 1 - Run with Python (local)
+
 1. Clone the repository:
 ```bash
 git clone https://github.com/Solenad/mp-csnetwk-group4.git
@@ -31,6 +33,25 @@ pip install -r dependencies.txt
 
 3. Run `main.py` (server):
 ```bash
+python main.py
+```
+
+### Option 2 — Run with Docker
+
+1. Clone the repository
+```bash
+git clone https://github.com/Solenad/mp-csnetwk-group4.git
+cd mp-csnetwk-group4
+```
+
+2. Build and start the container
+```bash
+docker compose up --build
+```
+
+3. Attach to the running container and start the app
+```bash
+docker exec -it mp-csnetwk-group4-app /bin/bash
 python main.py
 ```
 
