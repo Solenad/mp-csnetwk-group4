@@ -5,6 +5,7 @@ from network import my_info
 from network.message_sender import send_post, send_dm, send_follow, send_unfollow
 from network.broadcast import send_profile
 from network.peer_registry import get_peer_list
+from network.tictactoe import send_invite, send_move
 from ui.utils import print_info, print_error, print_prompt, print_success, print_verbose
 import config
 import time
@@ -116,13 +117,19 @@ def cmd_groups(args):
 def cmd_help(_args):
     print_info("Available commands:")
     commands = [
-        "exit - Exit the application",
-        "whoami - Show your user information",
-        "peers - List known peers",
-        "send <post|dm|follow|hello> [arguments] - Send messages",
-        "groups - Group management (not implemented)",
-        "help - Show this help message",
-        "verbose <on|off> - Toggle verbose mode",
+        "exit                              - Exit the application",
+        "whoami                            - Show your user ID, display name, and host",
+        "peers                             - List known peers on the network",
+        "send post <message>               - Broadcast a public post",
+        "send dm <username> <message>      - Send a direct message",
+        "send follow <username>            - Send a follow request",
+        "send unfollow <username>          - Unfollow a user",
+        "send hello                        - Broadcast your profile to the network",
+        "groups                            - Group management (not implemented yet)",
+        "ttt invite <username> <X|O>       - Invite a player to TicTacToe",
+        "ttt move <game_id> <pos>          - Make a TicTacToe move",
+        "verbose [on|off]                  - Toggle or set verbose mode (RFC-format output)",
+        "help                              - Show this help message",
     ]
     for cmd in commands:
         print(f" - {cmd}")
@@ -136,16 +143,32 @@ def cmd_verbose(args):
         config.verbose_mode = not config.verbose_mode
         print_success(
             f"Verbose mode {
-                      'enabled' if config.verbose_mode else 'disabled'}"
+                'enabled' if config.verbose_mode else 'disabled'}"
         )
     elif args[0] in ["on", "off"]:
         config.verbose_mode = args[0] == "on"
         print_success(
             f"Verbose mode {
-                      'enabled' if config.verbose_mode else 'disabled'}"
+                'enabled' if config.verbose_mode else 'disabled'}"
         )
     else:
         print_error("Usage: verbose [on|off]")
+    return True
+
+
+def cmd_ttt(args):
+    if not args:
+        print_error("Usage: ttt <invite|move> ...")
+        return True
+
+    if args[0] == "invite" and len(args) == 3:
+        _, username, symbol = args
+        send_invite(username, symbol.upper(), my_info)
+    elif args[0] == "move" and len(args) == 3:
+        _, game_id, pos = args
+        send_move(game_id, int(pos), my_info)
+    else:
+        print_error("Usage: ttt invite <username> <X|O> | ttt move <game_id> <pos>")
     return True
 
 
@@ -183,4 +206,5 @@ command_registry = {
     "groups": cmd_groups,
     "help": cmd_help,
     "verbose": cmd_verbose,
+    "ttt": cmd_ttt,
 }
