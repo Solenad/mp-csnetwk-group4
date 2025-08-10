@@ -28,9 +28,8 @@ def handle_message(message: str, addr: tuple) -> None:
 
         if not user_id:
             if config.verbose_mode:
-                print_verbose(
-                    f"[{time.time()}] Message without USER_ID ignored")
-            returnf"TIMESTAMP: {timestamp}\n"
+                print_verbose(f"[{time.time()}] Message without USER_ID ignored")
+            return
 
         if user_id == my_info["user_id"]:
             if config.verbose_mode:

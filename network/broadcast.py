@@ -20,10 +20,7 @@ def get_local_ip():
 
 def send_ping(my_info):
     """RFC-compliant PING message"""
-    message = (
-        "TYPE: PING\n"
-        f"USER_ID: {my_info['user_id']}\n\n"
-    )
+    message = "TYPE: PING\n" f"USER_ID: {my_info['user_id']}\n\n"
     send_broadcast(message)
 
 
@@ -71,11 +68,7 @@ def send_broadcast(message, target_ports=None):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            ports = (
-                target_ports
-                if target_ports
-                else list(range(50999, 50999 + 100))
-            )
+            ports = target_ports if target_ports else list(range(50999, 50999 + 100))
             for port in ports:
                 sock.sendto(message.encode("utf-8"), ("255.255.255.255", port))
     except Exception as e:
