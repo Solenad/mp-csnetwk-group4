@@ -112,7 +112,6 @@ def cmd_send(args):
         print_error(
             "Unknown subcommand for send. Available: post, dm, follow, unfollow, hello"
         )
-
     return True
 
 
@@ -136,27 +135,37 @@ def cmd_help(_args):
         "ttt invite <username> <X|O>       - Invite a player to TicTacToe",
         "ttt move <game_id> <pos>          - Make a TicTacToe move",
         "verbose [on|off]                  - Toggle or set verbose mode (RFC-format output)",
-        "help                              - Show this help message",
+        "test parse <message>              - Test message parsing",
+        "test unicast <user> <msg>         - Test direct messaging",
+        "test broadcast                    - Test broadcast functionality",
+        "test all                          - Run all protocol compliance tests",
+        "",
+        "Protocol Format:",
+        "  - KEY: VALUE lines",
+        "  - Terminate with \\n\\n",
+        "  - Broadcast address: 255.255.255.255:50999",
     ]
     for cmd in commands:
-        print(f" - {cmd}")
+        if cmd:
+            print(f" - {cmd}")
+        else:
+            print()
     return True
 
 
 def cmd_verbose(args):
     """Toggle global verbose mode in config"""
     if not args:
-        # Toggle instead of just showing
         config.verbose_mode = not config.verbose_mode
         print_success(
             f"Verbose mode {
-                'enabled' if config.verbose_mode else 'disabled'}"
+                      'enabled' if config.verbose_mode else 'disabled'}"
         )
     elif args[0] in ["on", "off"]:
         config.verbose_mode = args[0] == "on"
         print_success(
             f"Verbose mode {
-                'enabled' if config.verbose_mode else 'disabled'}"
+                      'enabled' if config.verbose_mode else 'disabled'}"
         )
     else:
         print_error("Usage: verbose [on|off]")
@@ -176,6 +185,83 @@ def cmd_ttt(args):
         send_move(game_id, int(pos), my_info)
     else:
         print_error("Usage: ttt invite <username> <X|O> | ttt move <game_id> <pos>")
+    return True
+
+
+def cmd_test(args):
+    """Protocol compliance testing"""
+    if not args:
+        print_error("Usage: test <parse|unicast|broadcast|all> [args]")
+        return True
+
+    subcmd = args[0]
+
+    if subcmd == "parse":
+        if len(args) < 2:
+            print_error(
+                'Usage: test parse "TYPE:POST\\nUSER_ID:alice\\nCONTENT:Hi\\n\\n"'
+            )
+            return True
+
+        raw_message = " ".join(args[1:]).replace("\\n", "\n")
+        if not raw_message.endswith("\n\n"):
+            raw_message += "\n\n"
+
+        print_info(f"=== TEST PARSE ===\nInput:\n{raw_message}")
+
+        from main import handle_message
+        from network.peer_registry import add_peer
+
+        # Add mock peer if needed
+        test_user = "testuser@192.168.1.99:50999"
+        add_peer(
+            user_id=test_user, ip="192.168.1.99", port=50999, display_name="TestUser"
+        )
+
+        handle_message(raw_message, ("192.168.1.99", 50999))
+        print_success("Message processed")
+
+    elif subcmd == "unicast":
+        if len(args) < 3:
+            print_error("Usage: test unicast <user_id> <message>")
+            return True
+
+        recipient = args[1]
+        message = " ".join(args[2:])
+
+        print_info(
+            f"=== TEST UNICAST ===\nTo: {
+                   recipient}\nMessage: {message}"
+        )
+
+        from network.message_sender import send_dm
+
+        if send_dm(recipient, message, my_info):
+            print_success("DM sent successfully")
+        else:
+            print_error("Failed to send DM")
+
+    elif subcmd == "broadcast":
+        print_info("=== TEST BROADCAST ===")
+        from network.broadcast import send_profile
+
+        send_profile(my_info)
+        print_success("Broadcast PROFILE message sent")
+
+    elif subcmd == "all":
+        print_info("Running all protocol compliance tests...")
+        test_cases = [
+            'parse "TYPE:POST\\nUSER_ID:testuser\\nCONTENT:Test\\n\\n"',
+            'parse "TYPE:DM\\nFROM:testuser\\nTO:me\\nCONTENT:Hi\\n\\n"',
+            'parse "TYPE:INVALID\\nUSER_ID:testuser\\n\\n"',
+            'unicast testuser@192.168.1.99:50999 "Test DM"',
+            "broadcast",
+        ]
+        for case in test_cases:
+            cmd_test(case.split())
+    else:
+        print_error(f"Unknown test command: {subcmd}")
+
     return True
 
 
@@ -214,4 +300,5 @@ command_registry = {
     "help": cmd_help,
     "verbose": cmd_verbose,
     "ttt": cmd_ttt,
+    "test": cmd_test,
 }

@@ -9,7 +9,7 @@ from network.broadcast import (
     send_immediate_discovery,
 )
 from ui.cli import start_cli
-from network.peer_registry import add_peer, get_peer
+from network.peer_registry import add_peer
 from network.tictactoe import handle_invite, handle_move, handle_result
 from ui.utils import print_verbose, print_prompt
 import threading
@@ -20,8 +20,29 @@ PROFILE_RESEND_INTERVAL = 10
 initial_discovery = True
 
 
+def validate_message(message: str) -> bool:
+    """Validate basic message structure"""
+    if not message.endswith("\n\n"):
+        print_error("Invalid message: missing terminator (\\n\\n)")
+        return False
+
+    lines = message.splitlines()
+    if len(lines) < 2:  # At least TYPE:... and terminator
+        print_error("Invalid message: too short")
+        return False
+
+    if not any(line.startswith("TYPE:") for line in lines):
+        print_error("Invalid message: missing TYPE field")
+        return False
+
+    return True
+
+
 def handle_message(message: str, addr: tuple) -> None:
     try:
+        if not validate_message(message):
+            return
+
         # Parse message into key-value pairs
         content = {}
         for line in message.splitlines():
@@ -33,6 +54,7 @@ def handle_message(message: str, addr: tuple) -> None:
         user_id = content.get("USER_ID") or content.get("FROM")
 
         if not user_id:
+            print_error("Invalid message: missing USER_ID/FROM field")
             return
 
         if user_id == my_info["user_id"]:
@@ -49,6 +71,10 @@ def handle_message(message: str, addr: tuple) -> None:
 
         # --- POST ---
         if msg_type == "POST":
+            if "CONTENT" not in content:
+                print_error("Invalid POST: missing CONTENT field")
+                return
+
             if user_id in config.followed_users:
                 if config.verbose_mode:
                     print_verbose(
@@ -67,6 +93,10 @@ def handle_message(message: str, addr: tuple) -> None:
 
         # --- DM ---
         elif msg_type == "DM":
+            if "CONTENT" not in content:
+                print_error("Invalid DM: missing CONTENT field")
+                return
+
             if config.verbose_mode:
                 print_verbose(
                     f"\nTYPE: DM\n"
@@ -80,7 +110,7 @@ def handle_message(message: str, addr: tuple) -> None:
             else:
                 print(
                     f"\n[DM from {display_name}]: {
-                        content.get('CONTENT', '')}\n"
+                      content.get('CONTENT', '')}\n"
                 )
             print_prompt()
             if content.get("MESSAGE_ID"):
@@ -89,8 +119,7 @@ def handle_message(message: str, addr: tuple) -> None:
         # --- PROFILE ---
         elif msg_type == "PROFILE":
             if initial_discovery:
-                return  # skip flood during discovery
-
+                return
             if config.verbose_mode:
                 print_verbose(
                     f"\nTYPE: PROFILE\n"
@@ -162,7 +191,6 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             handle_invite(content, addr, my_info)
-            print_prompt()
 
         elif msg_type == "TICTACTOE_MOVE":
             if config.verbose_mode:
@@ -178,7 +206,6 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             handle_move(content, addr, my_info)
-            print_prompt()
 
         elif msg_type == "TICTACTOE_RESULT":
             if config.verbose_mode:
@@ -194,18 +221,16 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n\n"
                 )
             handle_result(content, addr, my_info)
-            print_prompt()
 
         else:
+            print_error(f"Unknown message type: {msg_type}")
             if config.verbose_mode:
-                print_verbose(
-                    f"[{time.time()}] Unknown message type: {
-                        msg_type}\n{content}"
-                )
+                print_verbose(f"Full message:\n{message}")
 
     except Exception as e:
+        print_error(f"Error processing message: {e}")
         if config.verbose_mode:
-            print_verbose(f"[{time.time()}] Error processing message: {e}")
+            print_verbose(f"Full message:\n{message}")
 
 
 if __name__ == "__main__":
@@ -216,7 +241,6 @@ if __name__ == "__main__":
     my_info.update(
         {
             "port": port,
-            # use get_local_ip() for canonical user id (avoid host-only adapter IP)
             "user_id": f"{my_info['username']}@{get_local_ip()}:{port}",
         }
     )
