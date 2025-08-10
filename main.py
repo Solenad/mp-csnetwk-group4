@@ -1,6 +1,6 @@
 # main.py
 from network.socket_manager import start_listening
-from network.message_sender import send_ack
+from network.message_sender import send_ack, send_file_received
 from network.broadcast import (
     send_ping,
     send_profile,
@@ -21,6 +21,7 @@ from network.token_utils import (
 import threading
 import config
 import time
+import base64
 from ui.image_display import display_image
 
 PROFILE_RESEND_INTERVAL = 10
@@ -66,7 +67,9 @@ def handle_message(message: str, addr: tuple) -> None:
             "GROUP_CREATE": "group",
             "GROUP_UPDATE": "group",
             "GROUP_MESSAGE": "group",
-            "REVOKE": "chat",  # REVOKE uses chat scope per RFC
+            "REVOKE": "chat",
+            "FILE_OFFER": "file",
+            "FILE_CHUNK": "file",
         }
         for line in message.splitlines():
             if ":" in line:
@@ -366,15 +369,137 @@ def handle_message(message: str, addr: tuple) -> None:
                     )
             print_prompt()
 
+            # --- file_offer ---
+        elif msg_type == "file_offer":
+            if any(
+                field not in content
+                for field in ["from", "filename", "filesize", "fileid"]
+            ):
+                print_error("invalid file_offer: missing required fields")
+                return
+
+            fileid = content["fileid"]
+            config.incoming_files[fileid] = {
+                "from": user_id,
+                "filename": content["filename"],
+                "filesize": int(content["filesize"]),
+                "filetype": content.get("filetype", "application/octet-stream"),
+                "description": content.get("description", ""),
+                "chunks": {},
+                "received_chunks": 0,
+            }
+
+            if config.verbose_mode:
+                print_verbose(
+                    f"\ntype: file_offer\n"
+                    f"from: {user_id}\n"
+                    f"filename: {content['filename']}\n"
+                    f"filesize: {content['filesize']}\n"
+                    f"fileid: {fileid}\n"
+                    f"description: {content.get('description', '')}\n"
+                    f"timestamp: {content.get('timestamp', '')}\n"
+                    f"token: {content.get('token', '')}\n\n"
+                )
+            else:
+                print(
+                    f"\n{display_name} is sending you a file '{
+                        content['filename']}'. do you accept? (y/n)\n"
+                )
+            print_prompt()
+
+        # --- file_chunk ---
+        elif msg_type == "file_chunk":
+            required_fields = ["from", "fileid", "chunk_index", "total_chunks", "data"]
+            if any(field not in content for field in required_fields):
+                print_error("invalid file_chunk: missing required fields")
+                return
+
+            fileid = content["fileid"]
+            if fileid not in config.incoming_files:
+                if config.verbose_mode:
+                    print_verbose(f"ignoring file_chunk for unknown file id {fileid}")
+                return
+
+            chunk_index = int(content["chunk_index"])
+            total_chunks = int(content["total_chunks"])
+            chunk_data = base64.b64decode(content["data"])
+
+            # store the chunk
+            config.incoming_files[fileid]["chunks"][chunk_index] = chunk_data
+            config.incoming_files[fileid]["received_chunks"] += 1
+
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: FILE_CHUNK\n"
+                    f"FROM: {user_id}\n"
+                    f"FILEID: {fileid}\n"
+                    f"CHUNK_INDEX: {chunk_index}\n"
+                    f"TOTAL_CHUNKS: {total_chunks}\n"
+                    f"CHUNK_SIZE: {len(chunk_data)}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+
+            # check if all chunks received
+            if config.incoming_files[fileid]["received_chunks"] >= total_chunks:
+                file_info = config.incoming_files[fileid]
+                try:
+                    # reassemble file
+                    with open(file_info["filename"], "wb") as f:
+                        for i in range(total_chunks):
+                            f.write(file_info["chunks"][i])
+
+                    if not config.verbose_mode:
+                        print(
+                            f"\nfile transfer of {
+                                file_info['filename']} is complete\n"
+                        )
+
+                    # send acknowledgment
+                    send_file_received(fileid, user_id, my_info)
+
+                except Exception as e:
+                    print_error(f"failed to save file: {e}")
+                    send_file_received(fileid, user_id, my_info, "error")
+
+                # clean up
+                del config.incoming_files[fileid]
+
+        # --- file_received ---
+        elif msg_type == "file_received":
+            if "fileid" not in content or "status" not in content:
+                print_error("invalid file_received: missing required fields")
+                return
+
+            fileid = content["fileid"]
+            if fileid in config.active_file_transfers:
+                status = content["status"]
+                if status == "complete":
+                    if config.verbose_mode:
+                        print_verbose(
+                            f"\nfile {fileid} successfully received by {
+                                user_id}\n"
+                        )
+                    del config.active_file_transfers[fileid]
+                else:
+                    print_error(
+                        f"\nfile transfer {
+                            fileid} failed with status {status}\n"
+                    )
+            else:
+                if config.verbose_mode:
+                    print_verbose(
+                        f"\nreceived file_received for unknown file id {
+                            fileid}\n"
+                    )
+
         else:
             print_error(f"Unknown message type: {msg_type}")
             if config.verbose_mode:
                 print_verbose(f"Full message:\n{message}")
-
     except Exception as e:
-        print_error(f"Error processing message: {e}")
+        print_error(f"error processing message: {e}")
         if config.verbose_mode:
-            print_verbose(f"Full message:\n{message}")
+            print_verbose(f"full message:\n{message}")
 
 
 if __name__ == "__main__":
