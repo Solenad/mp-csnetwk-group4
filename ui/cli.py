@@ -10,6 +10,31 @@ import time
 
 console = Console()
 
+import base64
+import os
+
+def cmd_setpfp(args):
+    if not args:
+        print_error("Usage: setpfp <image_path>")
+        return True
+
+    img_path = args[0]
+    if not os.path.isfile(img_path):
+        print_error(f"File not found: {img_path}")
+        return True
+
+    # Read and encode image as base64
+    with open(img_path, "rb") as img_file:
+        my_info["avatar_b64"] = base64.b64encode(img_file.read()).decode("utf-8")
+
+    print_success(f"Profile picture updated to {img_path}")
+
+    # Send updated profile to peers
+    from network.broadcast import send_profile
+    send_profile(my_info)
+
+    return True
+
 
 def cmd_whoami(_args):
     print_info(f"I am '{my_info['username']}' on '{my_info['hostname']}'")
@@ -132,14 +157,12 @@ def cmd_verbose(args):
     global verbose_mode
     if not args or args[0] not in ["on", "off"]:
         print_info(
-            f"Verbose mode is currently {
-                'on' if verbose_mode else 'off'}"
+            f"Verbose mode is currently {'on' if verbose_mode else 'off'}"
         )
     else:
         verbose_mode = args[0] == "on"
         print_success(
-            f"Verbose mode {
-                'enabled' if verbose_mode else 'disabled'}"
+            f"Verbose mode {'enabled' if verbose_mode else 'disabled'}"
         )
     return True
 
@@ -183,4 +206,5 @@ command_registry = {
     "groups": cmd_groups,
     "help": cmd_help,
     "verbose": cmd_verbose,
+    "setpfp": cmd_setpfp,
 }

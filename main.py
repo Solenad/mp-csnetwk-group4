@@ -34,12 +34,12 @@ def handle_message(message: str, addr: tuple) -> None:
             ip=addr[0],
             port=addr[1],
             display_name=content.get("DISPLAY_NAME", user_id.split("@")[0]),
+            avatar_b64=content.get("AVATAR_B64")
         )
 
         if msg_type == "POST":
             print(
-                f"\n[POST] {content.get('DISPLAY_NAME', user_id)}: {
-                    content.get('CONTENT', '')}\n",
+                f"\n[POST] {content.get('DISPLAY_NAME', user_id)}: {content.get('CONTENT', '')}\n",
                 end="",
                 flush=True,
             )
@@ -49,8 +49,7 @@ def handle_message(message: str, addr: tuple) -> None:
             if len(token) != 3 or token[2] != "chat":
                 if verbose_mode:
                     print(
-                        f"\n[WARNING] Invalid DM token from {
-                            user_id}\n>> ",
+                        f"\n[WARNING] Invalid DM token from {user_id}\n>> ",
                         end="",
                         flush=True,
                     )
@@ -58,8 +57,7 @@ def handle_message(message: str, addr: tuple) -> None:
 
             display_name = content.get("FROM", user_id).split("@")[0]
             print(
-                f"\n[DM from {display_name}]: {
-                    content.get('CONTENT', '')}\n",
+                f"\n[DM from {display_name}]: {content.get('CONTENT', '')}\n",
                 end="",
                 flush=True,
             )
@@ -77,8 +75,7 @@ def handle_message(message: str, addr: tuple) -> None:
         elif msg_type == "FOLLOW":
             sender = content.get("FROM", user_id)
             print(
-                f"\n[FOLLOW] User {
-                    sender} has followed you\n",
+                f"\n[FOLLOW] User {sender} has followed you\n",
                 end="",
                 flush=True,
             )
@@ -87,8 +84,7 @@ def handle_message(message: str, addr: tuple) -> None:
         elif msg_type == "UNFOLLOW":
             sender = content.get("FROM", user_id)
             print(
-                f"\n[UNFOLLOW] User {
-                    sender} has unfollowed you\n",
+                f"\n[UNFOLLOW] User {sender} has unfollowed you\n",
                 end="",
                 flush=True,
             )
@@ -96,8 +92,7 @@ def handle_message(message: str, addr: tuple) -> None:
         elif msg_type == "ACK":
             if verbose_mode:
                 print(
-                    f"[VERBOSE] Received ACK for MESSAGE_ID: {
-                        content.get('MESSAGE_ID')}"
+                    f"[VERBOSE] Received ACK for MESSAGE_ID: {content.get('MESSAGE_ID')}"
                 )
 
     except Exception as e:
