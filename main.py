@@ -140,7 +140,6 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"\nTYPE: ACK\n"
                     f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
                     f"STATUS: {content.get('STATUS', '')}\n\n"
-                    f"Field Descriptions:\nMESSAGE_ID: Identifier of original message.\nSTATUS: e.g., RECEIVED.\n"
                 )
 
         # --- TicTacToe ---
