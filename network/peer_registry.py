@@ -39,7 +39,12 @@ def get_peer(user_id: str) -> Dict:
 
 
 def add_peer(
-    user_id: str, ip: str, port: int = 50999, display_name: str = None
+    user_id: str,
+    ip: str,
+    port: int = 50999,
+    display_name: str = None,
+    avatar_data: str = None,
+    avatar_type: str = None,
 ) -> None:
     canonical_user_id, canonical_port = _normalize_user_id_and_port(user_id, port)
     if canonical_port is None:
@@ -53,13 +58,18 @@ def add_peer(
         "port": canonical_port,
         "display_name": display_name or canonical_user_id.split("@")[0],
         "last_seen": now,
-        # <-- new
-        "last_profile_sent": existing["last_profile_sent"] if existing else 0,
+        "avatar_data": (
+            avatar_data
+            if avatar_data
+            else existing.get("avatar_data") if existing else None
+        ),
+        "avatar_type": (
+            avatar_type
+            if avatar_type
+            else existing.get("avatar_type") if existing else None
+        ),
     }
-    if existing:
-        existing.update(entry)
-    else:
-        _peer_registry[canonical_user_id] = entry
+    _peer_registry[canonical_user_id] = entry
 
 
 def remove_peer(user_id: str) -> None:

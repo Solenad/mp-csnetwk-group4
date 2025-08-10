@@ -12,7 +12,12 @@ from ui.cli import start_cli
 from network.peer_registry import add_peer
 from network.tictactoe import handle_invite, handle_move, handle_result
 from ui.utils import print_verbose, print_prompt, print_error
-from network.token_utils import validate_token, verify_token_ip, revoke_token
+from network.token_utils import (
+    validate_token,
+    verify_token_ip,
+    revoke_token,
+    revoked_tokens,
+)
 import threading
 import config
 import time
@@ -193,16 +198,35 @@ def handle_message(message: str, addr: tuple) -> None:
         elif msg_type == "PROFILE":
             if initial_discovery:
                 return
+
+            # Store avatar if present
+            avatar_data = content.get("AVATAR_DATA")
+            avatar_type = content.get("AVATAR_TYPE")
+
+            if avatar_data and avatar_type:
+                add_peer(
+                    user_id=user_id,
+                    ip=addr[0],
+                    port=content.get("PORT", addr[1]),
+                    display_name=display_name,
+                    avatar_data=avatar_data,
+                    avatar_type=avatar_type,
+                )
+
             if config.verbose_mode:
                 print_verbose(
                     f"\nTYPE: PROFILE\n"
                     f"USER_ID: {user_id}\n"
                     f"DISPLAY_NAME: {display_name}\n"
                     f"STATUS: {content.get('STATUS', '')}\n"
-                    f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n"
+                    f"AVATAR: {'Present' if avatar_data else 'None'}\n\n"
                 )
             else:
-                print(f"\n{display_name}: {content.get('STATUS', '')}\n")
+                status_msg = f"{display_name}: {content.get('STATUS', '')}"
+                if avatar_data:
+                    status_msg += " [🖼️]"  # Indicate avatar available
+                print(f"\n{status_msg}\n")
             print_prompt()
 
         # --- PING ---
@@ -294,6 +318,45 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n\n"
                 )
             handle_result(content, addr, my_info)
+
+        elif msg_type == "LIKE":
+            post_timestamp = content.get("POST_TIMESTAMP")
+            action = content.get("ACTION", "LIKE").upper()
+            from_user = content.get("FROM")
+
+            if not post_timestamp or not from_user:
+                print_error("Invalid LIKE: missing fields")
+                return
+
+            # Track other users' likes (optional)
+            post_key = (from_user, post_timestamp)
+            if action == "LIKE":
+                config.liked_posts.add(post_key)
+            else:
+                config.liked_posts.discard(post_key)
+
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: LIKE\n"
+                    f"FROM: {from_user}\n"
+                    f"POST_TIMESTAMP: {post_timestamp}\n"
+                    f"ACTION: {action}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+            else:
+                if action == "LIKE":
+                    print(
+                        f"\n{display_name} liked your post from {
+                          time.ctime(int(post_timestamp))}\n"
+                    )
+                else:
+                    print(
+                        f"\n{display_name} unliked your post from {
+                          time.ctime(int(post_timestamp))}\n"
+                    )
+            print_prompt()
 
         else:
             print_error(f"Unknown message type: {msg_type}")

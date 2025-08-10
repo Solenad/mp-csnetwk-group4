@@ -2,14 +2,21 @@
 from rich.console import Console
 from rich.table import Table
 from network import my_info
-from network.message_sender import send_post, send_dm, send_follow, send_unfollow
+from network.message_sender import (
+    send_post,
+    send_dm,
+    send_follow,
+    send_unfollow,
+    send_like,
+)
 from network.broadcast import send_profile
 from network.peer_registry import get_peer_list
 from network.tictactoe import send_invite, send_move
 from ui.utils import print_info, print_error, print_prompt, print_success, print_verbose
 import config
 import time
-from network.token_utils import generate_token, revoke_token
+from network.token_utils import generate_token
+import os
 
 console = Console()
 
@@ -141,6 +148,8 @@ def cmd_help(_args):
         "test broadcast                    - Test broadcast functionality",
         "test token                        - Test token validation scenarios",
         "test all                          - Run all protocol compliance tests",
+        "like <timestamp> [unlike]         - Like/unlike a post",
+        "set_avatar <path>                 - Set your profile picture",
         "",
         "Protocol Format:",
         "  - KEY: VALUE lines",
@@ -229,7 +238,7 @@ def cmd_test(args):
 
         print_info(
             f"=== TEST UNICAST ===\nTo: {
-                   recipient}\nMessage: {message}"
+                recipient}\nMessage: {message}"
         )
 
         if send_dm(recipient, message, my_info):
@@ -265,6 +274,46 @@ def cmd_test(args):
     else:
         print_error(f"Unknown test command: {subcmd}")
 
+    return True
+
+
+def cmd_like(args):
+    """Send a like to a post"""
+    if len(args) < 1:
+        print_error("Usage: like <post_timestamp> [unlike]")
+        return True
+
+    try:
+        post_timestamp = int(args[0])
+        action = "UNLIKE" if len(args) > 1 and args[1].lower() == "unlike" else "LIKE"
+
+        if send_like(post_timestamp, my_info, action):
+            verb = "unliked" if action == "UNLIKE" else "liked"
+            print_success(
+                f"Successfully {verb} post from {
+                          time.ctime(post_timestamp)}"
+            )
+    except ValueError:
+        print_error("Invalid timestamp - must be integer")
+    return True
+
+
+def cmd_set_avatar(args):
+    """Set your profile picture"""
+    if not args:
+        print_error("Usage: set_avatar <image_path>")
+        return True
+
+    avatar_path = args[0]
+    if not os.path.exists(avatar_path):
+        print_error(f"File not found: {avatar_path}")
+        return True
+
+    my_info["avatar_path"] = avatar_path
+    print_success(
+        f"Avatar set to {
+            avatar_path}. Send 'hello' to update your profile."
+    )
     return True
 
 
@@ -304,4 +353,6 @@ command_registry = {
     "verbose": cmd_verbose,
     "ttt": cmd_ttt,
     "test": cmd_test,
+    "like": cmd_like,
+    "set_avatar": cmd_set_avatar,
 }
