@@ -40,7 +40,6 @@ def send_post(content, sender_info):
 def send_dm(recipient_id: str, content: str, sender_info: Dict) -> bool:
     peer = get_peer(recipient_id)
     if not peer:
-        # allow direct user_id like alice@192.168.1.12:50999
         try:
             _, address = recipient_id.split("@")
             ip, port = address.split(":")
@@ -151,8 +150,6 @@ def send_unfollow(user_id_to_unfollow, sender_info):
 
 
 def send_ack(message_id: str, recipient_user_id: str):
-    from network.peer_registry import get_peer
-
     peer = get_peer(recipient_user_id)
     if not peer:
         try:
@@ -182,7 +179,6 @@ def send_ack(message_id: str, recipient_user_id: str):
             message_id}\n"
         "STATUS: RECEIVED\n\n"
     )
-
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.sendto(ack_message.encode("utf-8"), (ip, port))
