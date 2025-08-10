@@ -1,7 +1,13 @@
 # main.py
 from network.socket_manager import start_listening
 from network.message_sender import send_ack
-from network.broadcast import send_ping, send_profile, my_info, get_local_ip
+from network.broadcast import (
+    send_ping,
+    send_profile,
+    my_info,
+    get_local_ip,
+    send_immediate_discovery,
+)
 from ui.cli import start_cli
 from network.peer_registry import add_peer
 from network.tictactoe import handle_invite, handle_move, handle_result
@@ -213,9 +219,13 @@ if __name__ == "__main__":
     my_info.update(
         {
             "port": port,
-            "user_id": f"{my_info['username']}@{socket.gethostbyname(socket.gethostname())}:{port}",
+            # use get_local_ip() for canonical user id (avoid host-only adapter IP)
+            "user_id": f"{my_info['username']}@{get_local_ip()}:{port}",
         }
     )
+
+    # Send immediate discovery bursts so peers see us right away
+    send_immediate_discovery(my_info)
 
     def ping_loop():
         while True:
