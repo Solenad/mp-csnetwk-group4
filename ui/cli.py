@@ -12,6 +12,49 @@ console = Console()
 
 import base64
 import os
+import tempfile
+import webbrowser
+from network.peer_registry import get_peer_list
+
+
+def cmd_showpfp(args):
+    if not args:
+        print_error("Usage: showpfp <username|me>")
+        return True
+
+    # Get avatar from self or peers
+    if args[0].lower() == "me":
+        avatar_b64 = my_info.get("avatar_b64")
+    else:
+        avatar_b64 = None
+        peers = get_peer_list()
+        for peer in peers:
+            if peer["display_name"].lower() == args[0].lower() or peer["user_id"] == args[0]:
+                avatar_b64 = peer.get("avatar_b64")
+                break
+
+    if not avatar_b64:
+        print_error("No avatar found for this user.")
+        return True
+
+    # Decode and display image
+    try:
+        img_data = base64.b64decode(avatar_b64)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+            tmp.write(img_data)
+            tmp_path = tmp.name
+
+        # Open image (cross-platform)
+        if os.name == "nt":  # Windows
+            os.startfile(tmp_path)
+        elif os.name == "posix":
+            subprocess.run(["xdg-open", tmp_path])
+        else:
+            print_success(f"Image saved at {tmp_path}")
+    except Exception as e:
+        print_error(f"Failed to display avatar: {e}")
+
+    return True
 
 def cmd_setpfp(args):
     if not args:
@@ -23,15 +66,13 @@ def cmd_setpfp(args):
         print_error(f"File not found: {img_path}")
         return True
 
-    # Read and encode image as base64
-    with open(img_path, "rb") as img_file:
-        my_info["avatar_b64"] = base64.b64encode(img_file.read()).decode("utf-8")
+    with open(img_path, "rb") as f:
+        avatar_b64 = base64.b64encode(f.read()).decode("utf-8")
 
+    my_info["avatar_b64"] = avatar_b64
     print_success(f"Profile picture updated to {img_path}")
 
-    # Send updated profile to peers
-    from network.broadcast import send_profile
-    send_profile(my_info)
+    # Broadcast to peers so they get your PFP
 
     return True
 
@@ -207,4 +248,5 @@ command_registry = {
     "help": cmd_help,
     "verbose": cmd_verbose,
     "setpfp": cmd_setpfp,
+    "showpfp": cmd_showpfp,
 }

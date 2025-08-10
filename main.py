@@ -8,6 +8,7 @@ import threading
 import socket
 from config import verbose_mode
 from ui.utils import print_prompt
+from network.peer_registry import add_peer
 
 
 def handle_message(message: str, addr: tuple) -> None:
@@ -34,7 +35,7 @@ def handle_message(message: str, addr: tuple) -> None:
             ip=addr[0],
             port=addr[1],
             display_name=content.get("DISPLAY_NAME", user_id.split("@")[0]),
-            avatar_b64=content.get("AVATAR_B64")
+            avatar_b64=content.get("AVATAR_B64", "")
         )
 
         if msg_type == "POST":
@@ -98,6 +99,22 @@ def handle_message(message: str, addr: tuple) -> None:
     except Exception as e:
         if verbose_mode:
             print(f"[VERBOSE] Error processing message: {e}")
+
+def handle_profile_update(data):
+    user_id = data["USER_ID"]
+    if user_id not in peers:
+        add_peer(
+            user_id=user_id,
+            ip=data["IP"],
+            port=data["PORT"],
+            display_name=data.get("DISPLAY_NAME", user_id.split("@")[0]),
+            avatar_b64=data.get("avatar_b64", "")
+        )
+    else:
+        peer = peers[user_id]
+        peer["display_name"] = data.get("DISPLAY_NAME", peer["display_name"])
+        if "avatar_b64" in data:
+            peer["avatar_b64"] = data["avatar_b64"]  # update PFP
 
 
 if __name__ == "__main__":

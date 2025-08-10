@@ -1,6 +1,5 @@
-# peer_registry.py
 import time
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 _peer_registry: Dict[str, Dict] = {}
 
@@ -21,13 +20,19 @@ def get_peer(user_id: str) -> Dict:
 
 
 def add_peer(
-    user_id: str, ip: str, port: int = 50999, display_name: str = None
+    user_id: str,
+    ip: str,
+    port: int = 50999,
+    display_name: str = None,
+    avatar_b64: Optional[str] = None
 ) -> None:
+    """Add or update a peer in the registry with optional avatar."""
     _peer_registry[user_id] = {
         "user_id": user_id,
         "ip": ip,
         "port": port,
         "display_name": display_name or user_id.split("@")[0],
+        "avatar_b64": avatar_b64 or "",  # empty string if no PFP
         "last_seen": time.time(),
     }
 
