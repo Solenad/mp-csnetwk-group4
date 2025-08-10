@@ -3,14 +3,19 @@ import threading
 
 BUFFER_SIZE = 4096
 BASE_PORT = 50999  # Default starting port
-MAX_PORT_ATTEMPTS = 100  # Max ports to try (51000 to 51098)
+MAX_PORT_ATTEMPTS = 100  # Max ports to try (50999 to 51098)
 
 
 def is_port_in_use(port):
     """Checks if the given UDP port is already in use."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as temp_sock:
         try:
-            temp_sock.bind(("127.0.0.1", port))
+            temp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            temp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        except AttributeError:
+            pass
+        try:
+            temp_sock.bind(("0.0.0.0", port))
             return False
         except OSError:
             return True
@@ -25,8 +30,13 @@ def start_listening(callback):
             # Create socket
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            except AttributeError:
+                pass  # Not available on all platforms
 
-            # Bind to all interfaces
+            # Bind to all interfaces for LAN/Docker
             sock.bind(("0.0.0.0", port))
 
             print(f"Listening on UDP port {port}")
@@ -48,7 +58,7 @@ def start_listening(callback):
             try:
                 data, addr = sock.recvfrom(BUFFER_SIZE)
                 if data:
-                    message = data.decode("utf-8").strip()
+                    message = data.decode("utf-8", errors="ignore").strip()
                     if message:
                         callback(message, addr)
             except Exception as e:
