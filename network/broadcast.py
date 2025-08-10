@@ -119,10 +119,15 @@ def send_broadcast(message, target_ports=None):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-            # For testing: don't bind to local_ip, let OS choose interface
-            # This avoids issues where wrong interface IP prevents sending
-            # If needed later, re-enable with: sock.bind((local_ip, 0))
+            # Bind the socket to the preferred local IP (ephemeral port 0) so outgoing uses that NIC
+            try:
+                sock.bind((local_ip, 0))
+            except Exception as e:
+                if verbose_mode:
+                    print(
+                        f"Could not bind broadcast socket to {
+                            local_ip}: {e}"
+                    )
 
             for port in ports:
                 if verbose_mode:
