@@ -1,11 +1,12 @@
+# ui/cli.py
 from rich.console import Console
 from rich.table import Table
 from network import my_info
 from network.message_sender import send_post, send_dm, send_follow, send_unfollow
 from network.broadcast import send_profile
 from network.peer_registry import get_peer_list
-from ui.utils import print_info, print_error, print_prompt, print_success
-from config import verbose_mode, followed_users
+from ui.utils import print_info, print_error, print_prompt, print_success, print_verbose
+import config
 import time
 
 console = Console()
@@ -75,10 +76,10 @@ def cmd_send(args):
             print_error("Usage: send follow <username>")
         else:
             username = subargs[0]
-            if username in followed_users:
+            if username in config.followed_users:
                 print_error(f"You are already following {username}")
             elif send_follow(username, my_info):
-                followed_users.add(username)
+                config.followed_users.add(username)
                 print_success(f"Follow request sent to {username}")
 
     elif subcommand == "unfollow":
@@ -86,10 +87,10 @@ def cmd_send(args):
             print_error("Usage: send unfollow <username>")
         else:
             username = subargs[0]
-            if username not in followed_users:
+            if username not in config.followed_users:
                 print_error(f"You are not following {username}")
             elif send_unfollow(username, my_info):
-                followed_users.remove(username)
+                config.followed_users.remove(username)
                 print_success(f"Unfollow request sent to {username}")
 
     elif subcommand == "hello":
@@ -129,24 +130,23 @@ def cmd_help(_args):
 
 
 def cmd_verbose(args):
-    global verbose_mode
-    if not args or args[0] not in ["on", "off"]:
-        print_info(
-            f"Verbose mode is currently {
-                'on' if verbose_mode else 'off'}"
-        )
-    else:
-        verbose_mode = args[0] == "on"
+    """Toggle global verbose mode in config"""
+    if not args:
+        # Toggle instead of just showing
+        config.verbose_mode = not config.verbose_mode
         print_success(
             f"Verbose mode {
-                'enabled' if verbose_mode else 'disabled'}"
+                      'enabled' if config.verbose_mode else 'disabled'}"
         )
+    elif args[0] in ["on", "off"]:
+        config.verbose_mode = args[0] == "on"
+        print_success(
+            f"Verbose mode {
+                      'enabled' if config.verbose_mode else 'disabled'}"
+        )
+    else:
+        print_error("Usage: verbose [on|off]")
     return True
-
-
-def print_verbose(msg):
-    if verbose_mode:
-        print_info(f"[VERBOSE] {msg}")
 
 
 def start_cli(info):

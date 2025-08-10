@@ -6,15 +6,19 @@ from ui.cli import start_cli
 from network.peer_registry import add_peer
 import threading
 import socket
-from config import verbose_mode
-from ui.utils import print_prompt
+import config
+from ui.utils import print_verbose, print_prompt
+import time
+from network.peer_registry import _peer_registry
+
+PROFILE_RESEND_INTERVAL = 10
 
 
 def handle_message(message: str, addr: tuple) -> None:
     try:
-        lines = [line.strip() for line in message.split("\n") if line.strip()]
+        # Parse message into key-value pairs
         content = {}
-        for line in lines:
+        for line in message.splitlines():
             if ":" in line:
                 key, value = line.split(":", 1)
                 content[key.strip()] = value.strip()
@@ -22,87 +26,113 @@ def handle_message(message: str, addr: tuple) -> None:
         msg_type = content.get("TYPE")
         user_id = content.get("USER_ID") or content.get("FROM")
 
-        # if msg_type != "PROFILE":
-        #     print(f"[DEBUG] msg_type = {msg_type}")
+        if not user_id:
+            if config.verbose_mode:
+                print_verbose(
+                    f"[{time.time()}] Message without USER_ID ignored")
+            returnf"TIMESTAMP: {timestamp}\n"
 
         if user_id == my_info["user_id"]:
+            if config.verbose_mode:
+                print_verbose(f"[{time.time()}] Ignoring own message")
             return
 
-        # Always update peer info
+        # Add/update peer information
+        display_name = content.get("DISPLAY_NAME", user_id.split("@")[0])
         add_peer(
             user_id=user_id,
             ip=addr[0],
-            port=addr[1],
-            display_name=content.get("DISPLAY_NAME", user_id.split("@")[0]),
+            port=content.get("PORT", addr[1]),
+            display_name=display_name,
         )
 
+        # Handle message types according to RFC
         if msg_type == "POST":
-            print(
-                f"\n[POST] {content.get('DISPLAY_NAME', user_id)}: {
-                    content.get('CONTENT', '')}\n",
-                end="",
-                flush=True,
-            )
+            if config.verbose_mode:
+                print_verbose(
+                    f"\n[{content.get('TIMESTAMP', time.time())}] [POST] from {
+                        user_id}\n"
+                    f"CONTENT: {content.get('CONTENT', '')}\n"
+                    f"TTL: {content.get('TTL', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}"
+                )
+            else:
+                print(f"\n{display_name}: {content.get('CONTENT', '')}\n")
             print_prompt()
+
         elif msg_type == "DM":
-            token = content.get("TOKEN", "").split("|")
-            if len(token) != 3 or token[2] != "chat":
-                if verbose_mode:
-                    print(
-                        f"\n[WARNING] Invalid DM token from {
-                            user_id}\n>> ",
-                        end="",
-                        flush=True,
-                    )
-                return
-
-            display_name = content.get("FROM", user_id).split("@")[0]
-            print(
-                f"\n[DM from {display_name}]: {
-                    content.get('CONTENT', '')}\n",
-                end="",
-                flush=True,
-            )
+            if config.verbose_mode:
+                print_verbose(
+                    f"\n[{content.get('TIMESTAMP', time.time())}] [DM] from {
+                        user_id}\n"
+                    f"TO: {content.get('TO', '')}\n"
+                    f"CONTENT: {content.get('CONTENT', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}"
+                )
+            else:
+                print(
+                    f"\n[DM from {display_name}]: {
+                        content.get('CONTENT', '')}\n"
+                )
             print_prompt()
 
-            # Send ACK
-            message_id = content.get("MESSAGE_ID")
-            sender_id = content.get("FROM")
-            if message_id and sender_id:
-                send_ack(message_id, sender_id)
+            # Send ACK if needed
+            if content.get("MESSAGE_ID"):
+                send_ack(content["MESSAGE_ID"], user_id)
 
-        elif msg_type in ["PING", "PROFILE"]:
-            send_profile(my_info)
+        elif msg_type == "PROFILE":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\n[{time.time()}] [PROFILE] from {user_id}\n"
+                    f"DISPLAY_NAME: {display_name}\n"
+                    f"STATUS: {content.get('STATUS', '')}"
+                )
+            else:
+                print(f"\n{display_name}: {content.get('STATUS', '')}\n")
+            print_prompt()
+
+        elif msg_type == "PING":
+            if config.verbose_mode:
+                print_verbose(f"[{time.time()}] [PING] from {user_id}")
 
         elif msg_type == "FOLLOW":
-            sender = content.get("FROM", user_id)
-            print(
-                f"\n[FOLLOW] User {
-                    sender} has followed you\n",
-                end="",
-                flush=True,
-            )
+            if config.verbose_mode:
+                print_verbose(
+                    f"\n[{content.get('TIMESTAMP', time.time())}] [FOLLOW] from {
+                        user_id}"
+                )
+            else:
+                print(f"\nUser {display_name} has followed you\n")
             print_prompt()
 
         elif msg_type == "UNFOLLOW":
-            sender = content.get("FROM", user_id)
-            print(
-                f"\n[UNFOLLOW] User {
-                    sender} has unfollowed you\n",
-                end="",
-                flush=True,
-            )
+            if config.verbose_mode:
+                print_verbose(
+                    f"\n[{content.get('TIMESTAMP', time.time())}] [UNFOLLOW] from {
+                        user_id}"
+                )
+            else:
+                print(f"\nUser {display_name} has unfollowed you\n")
             print_prompt()
+
         elif msg_type == "ACK":
-            if verbose_mode:
-                print(
-                    f"[VERBOSE] Received ACK for MESSAGE_ID: {
-                        content.get('MESSAGE_ID')}"
+            if config.verbose_mode:
+                print_verbose(
+                    f"[{time.time()}] [ACK] for MESSAGE_ID: {
+                        content.get('MESSAGE_ID', '')}"
+                )
+            # Non-verbose: no output per RFC
+
+        else:
+            if config.verbose_mode:
+                print_verbose(
+                    f"[{time.time()}] Unknown message type: {
+                        msg_type}\n{content}"
                 )
 
     except Exception as e:
-        if verbose_mode:
-            print(f"[VERBOSE] Error processing message: {e}")
+        if config.verbose_mode:
+            print_verbose(f"[{time.time()}] Error processing message: {e}")
 
 
 if __name__ == "__main__":

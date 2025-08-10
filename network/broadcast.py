@@ -1,4 +1,4 @@
-# broadcast.py
+# network/broadcast.py
 import socket
 import base64
 import os
@@ -22,13 +22,11 @@ def send_ping(my_info):
     """RFC-compliant PING message"""
     message = (
         "TYPE: PING\n"
-        f"USER_ID: {my_info['user_id']}\n"
-        "\n"  # Double newline per RFC
+        f"USER_ID: {my_info['user_id']}\n\n"
     )
     send_broadcast(message)
 
 
-# broadcast.py (updated send_profile function)
 def send_profile(my_info: Dict) -> None:
     """Send PROFILE message with current port (RFC Section 5.1)"""
     message = (
@@ -54,9 +52,8 @@ def send_profile(my_info: Dict) -> None:
             if verbose_mode:
                 print(f"Failed to include avatar: {e}")
 
-    message += "\n"  # Double newline terminator per RFC
-
-    # Send to both default ports per RFC
+    # RFC requires messages to end with a blank line (i.e., \n\n)
+    message += "\n\n"
     send_broadcast(message)
 
 
@@ -77,7 +74,8 @@ def send_broadcast(message, target_ports=None):
             ports = (
                 target_ports
                 if target_ports
-                else list(range(50999, 50999 + 100))  # Full port range
+                # Full port range (per your prior code)
+                else list(range(50999, 50999 + 100))
             )
             for port in ports:
                 sock.sendto(message.encode("utf-8"), ("255.255.255.255", port))
