@@ -1,2 +1,5 @@
 rich
 colorama
+pillow>=9.0.0
+pyfiglet>=0.8
+termcolor

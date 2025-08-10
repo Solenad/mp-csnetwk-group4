@@ -21,6 +21,7 @@ from network.token_utils import (
 import threading
 import config
 import time
+from ui.image_display import display_image
 
 PROFILE_RESEND_INTERVAL = 10
 initial_discovery = True
@@ -203,29 +204,39 @@ def handle_message(message: str, addr: tuple) -> None:
             avatar_data = content.get("AVATAR_DATA")
             avatar_type = content.get("AVATAR_TYPE")
 
-            if avatar_data and avatar_type:
-                add_peer(
-                    user_id=user_id,
-                    ip=addr[0],
-                    port=content.get("PORT", addr[1]),
-                    display_name=display_name,
-                    avatar_data=avatar_data,
-                    avatar_type=avatar_type,
-                )
+            # Update peer info with avatar
+            add_peer(
+                user_id=user_id,
+                ip=addr[0],
+                port=content.get("PORT", addr[1]),
+                display_name=display_name,
+                avatar_data=avatar_data,
+                avatar_type=avatar_type,
+            )
 
             if config.verbose_mode:
+                avatar_info = ""
+                if avatar_data:
+                    avatar_info = (
+                        f"AVATAR_TYPE: {avatar_type}\n"
+                        f"AVATAR_SIZE: {len(avatar_data)} bytes\n"
+                    )
                 print_verbose(
                     f"\nTYPE: PROFILE\n"
                     f"USER_ID: {user_id}\n"
                     f"DISPLAY_NAME: {display_name}\n"
                     f"STATUS: {content.get('STATUS', '')}\n"
                     f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n"
-                    f"AVATAR: {'Present' if avatar_data else 'None'}\n\n"
+                    f"{avatar_info}\n"
                 )
             else:
+
                 status_msg = f"{display_name}: {content.get('STATUS', '')}"
+
                 if avatar_data:
-                    status_msg += " [🖼️]"  # Indicate avatar available
+                    # Pass display_name here
+                    if not display_image(avatar_data, display_name):
+                        status_msg += " [🖼️]"
                 print(f"\n{status_msg}\n")
             print_prompt()
 
@@ -349,12 +360,12 @@ def handle_message(message: str, addr: tuple) -> None:
                 if action == "LIKE":
                     print(
                         f"\n{display_name} liked your post from {
-                          time.ctime(int(post_timestamp))}\n"
+                            time.ctime(int(post_timestamp))}\n"
                     )
                 else:
                     print(
                         f"\n{display_name} unliked your post from {
-                          time.ctime(int(post_timestamp))}\n"
+                            time.ctime(int(post_timestamp))}\n"
                     )
             print_prompt()
 

@@ -10,13 +10,15 @@ from network.message_sender import (
     send_like,
 )
 from network.broadcast import send_profile
-from network.peer_registry import get_peer_list
+from network.peer_registry import get_peer_list, get_peer
 from network.tictactoe import send_invite, send_move
 from ui.utils import print_info, print_error, print_prompt, print_success, print_verbose
 import config
 import time
 from network.token_utils import generate_token
+import base64
 import os
+from network.broadcast import get_mime_type
 
 console = Console()
 
@@ -291,7 +293,7 @@ def cmd_like(args):
             verb = "unliked" if action == "UNLIKE" else "liked"
             print_success(
                 f"Successfully {verb} post from {
-                          time.ctime(post_timestamp)}"
+                    time.ctime(post_timestamp)}"
             )
     except ValueError:
         print_error("Invalid timestamp - must be integer")
@@ -309,11 +311,41 @@ def cmd_set_avatar(args):
         print_error(f"File not found: {avatar_path}")
         return True
 
-    my_info["avatar_path"] = avatar_path
-    print_success(
-        f"Avatar set to {
-            avatar_path}. Send 'hello' to update your profile."
-    )
+    try:
+        with open(avatar_path, "rb") as f:
+            my_info["avatar_data"] = base64.b64encode(f.read()).decode("utf-8")
+            my_info["avatar_type"] = get_mime_type(avatar_path)
+        print_success(
+            f"Avatar set from {
+                avatar_path}. Send 'hello' to update your profile."
+        )
+    except Exception as e:
+        print_error(f"Failed to load avatar: {e}")
+    return True
+
+
+def cmd_show_avatar(args):
+    """Display a peer's avatar if available"""
+    if not args:
+        print_error("Usage: show_avatar <username>")
+        return True
+
+    peer = get_peer(args[0])
+    if not peer:
+        print_error("Peer not found")
+        return True
+
+    if not peer.get("avatar_data"):
+        print_error("Peer has no avatar")
+        return True
+
+    try:
+        # Simple terminal display (could be enhanced with actual image display)
+        print(f"\nAvatar for {peer['display_name']}:")
+        print(f"Type: {peer['avatar_type']}")
+        print(f"Size: {len(peer['avatar_data'])} bytes (base64)\n")
+    except Exception as e:
+        print_error(f"Failed to display avatar: {e}")
     return True
 
 
