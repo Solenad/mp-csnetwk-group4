@@ -2,6 +2,7 @@
 from network.socket_manager import start_listening
 from network.message_sender import send_ack
 from network.broadcast import send_ping, send_profile, my_info
+from network.file_transfer import handle_incoming
 from ui.cli import start_cli
 from network.peer_registry import add_peer
 from network.tictactoe import handle_invite, handle_move, handle_result
@@ -80,6 +81,16 @@ def handle_message(message: str, addr: tuple) -> None:
             if content.get("MESSAGE_ID"):
                 send_ack(content["MESSAGE_ID"], user_id)
 
+        # --- FILE ---
+        elif msg_type and msg_type.startswith("FILE_"):
+            # Validate token before processing (RFC Section 12)
+            token = content.get("TOKEN")
+            if not validate_token(token, expected_scope="file"):
+                if config.verbose_mode:
+                    print_verbose(f"[{time.time()}] Invalid/expired file token from {user_id}")
+                return
+            handle_incoming(content)
+            
         # --- PROFILE ---
         elif msg_type == "PROFILE":
             if config.verbose_mode:

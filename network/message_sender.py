@@ -75,6 +75,28 @@ def send_dm(recipient_id: str, content: str, sender_info: Dict) -> bool:
 
     return send_unicast(message, (ip, port))
 
+def send_file(message: str, recipient_id: str) -> bool:
+    peer = get_peer(recipient_id)
+    if not peer:
+        try:
+            _, address = recipient_id.split("@")
+            ip, port = address.split(":")
+            ip = ip.strip()
+            port = int(port.strip())
+        except Exception:
+            print_error(f"Invalid recipient ID format: {recipient_id}")
+            return False
+    else:
+        try:
+            _, address = peer["user_id"].split("@")
+            ip_from_userid, port_from_userid = address.split(":")
+            ip = peer.get("ip", ip_from_userid)
+            port = int(port_from_userid)
+        except Exception:
+            ip = peer["ip"]
+            port = peer["port"]
+
+    return send_unicast(message, (ip, port))
 
 def send_follow(user_id_to_follow, sender_info):
     peers = get_peer_list()
