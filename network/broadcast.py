@@ -23,116 +23,46 @@ def get_local_ip():
 
 
 def get_subnet_broadcast():
+    """
+    Detect broadcast address for the interface used by get_local_ip().
+    Works on Windows and Linux, ignores other adapters.
+    """
+    local_ip = get_local_ip()
     system = platform.system().lower()
 
     try:
         if system == "windows":
-            # Use ipconfig
-            result = subprocess.run(
-                ["ipconfig"], capture_output=True, text=True, check=True
-            ).stdout
-
-            # Extract IPv4 + subnet mask from ipconfig output
-            ipv4_match = re.search(r"IPv4 Address.*?: (\d+\.\d+\.\d+\.\d+)", result)
-            mask_match = re.search(r"Subnet Mask.*?: (\d+\.\d+\.\d+\.\d+)", result)
-
-            if ipv4_match and mask_match:
-                ip_str = ipv4_match.group(1)
-                mask_str = mask_match.group(1)
-                net = ipaddress.IPv4Network(f"{ip_str}/{mask_str}", strict=False)
-                return str(net.broadcast_address)
-
-        elif system == "linux":
-            # Use ip command
-            result = subprocess.run(
-                ["ip", "-4", "addr", "show", "scope", "global"],
-                capture_output=True,
-                text=True,
-                check=True,
-            ).stdout
-
-            for line in result.splitlines():
+            output = subprocess.check_output(
+                "ipconfig", encoding="utf-8", errors="ignore"
+            )
+            current_ip = None
+            for line in output.splitlines():
                 line = line.strip()
-                if line.startswith("inet "):
-                    parts = line.split()
-                    if "brd" in parts:
-                        return parts[parts.index("brd") + 1]
-                    else:
-                        ip_cidr = parts[1]
-                        net = ipaddress.ip_network(ip_cidr, strict=False)
+                if "IPv4 Address" in line or line.lower().startswith("ipv4 address"):
+                    current_ip = line.split(":")[-1].strip()
+                elif "Subnet Mask" in line or line.lower().startswith("subnet mask"):
+                    mask = line.split(":")[-1].strip()
+                    if current_ip == local_ip:
+                        net = ipaddress.IPv4Network(f"{local_ip}/{mask}", strict=False)
                         return str(net.broadcast_address)
 
-    except Exception as e:
-        print(f"Failed to detect broadcast: {e}")
-
-    # Fallback
-    return "255.255.255.255"
-
-
-def get_subnet_broadcast():
-    """
-    Detect the LAN broadcast address without netifaces.
-    Prefers 192.168.x.x (then other private ranges).
-    Works on Windows and Linux.
-    """
-    system = platform.system().lower()
-
-    try:
-        if system == "windows":
-            result = subprocess.run(
-                ["ipconfig"], capture_output=True, text=True, check=True
-            ).stdout
-
-            # Find all IPv4 + mask pairs
-            matches = re.findall(
-                r"IPv4 Address.*?: (\d+\.\d+\.\d+\.\d+).*?"
-                r"Subnet Mask.*?: (\d+\.\d+\.\d+\.\d+)",
-                result,
-                flags=re.DOTALL,
-            )
-
-            chosen_ip, chosen_mask = None, None
-            for ip_str, mask_str in matches:
-                if ip_str.startswith("192.168."):
-                    chosen_ip, chosen_mask = ip_str, mask_str
-                    break
-                elif ipaddress.ip_address(ip_str).is_private:
-                    chosen_ip, chosen_mask = ip_str, mask_str
-
-            if chosen_ip and chosen_mask:
-                net = ipaddress.IPv4Network(f"{chosen_ip}/{chosen_mask}", strict=False)
-                return str(net.broadcast_address)
-
         elif system == "linux":
-            result = subprocess.run(
-                ["ip", "-4", "addr", "show", "scope", "global"],
-                capture_output=True,
-                text=True,
-                check=True,
-            ).stdout
-
-            candidates = []
-            for line in result.splitlines():
-                line = line.strip()
-                if line.startswith("inet "):
-                    parts = line.split()
-                    ip_cidr = parts[1]
-                    ip_str = ip_cidr.split("/")[0]
-                    net = ipaddress.ip_network(ip_cidr, strict=False)
-                    candidates.append((ip_str, str(net.broadcast_address)))
-
-            # Prefer 192.168.x.x
-            for ip_str, brd in candidates:
-                if ip_str.startswith("192.168."):
-                    return brd
-            if candidates:
-                return candidates[0][1]
+            output = subprocess.check_output(
+                ["ip", "-4", "addr", "show", "scope", "global"], encoding="utf-8"
+            )
+            for line in output.splitlines():
+                if local_ip in line:
+                    parts = line.strip().split()
+                    cidr = parts[1]
+                    net = ipaddress.IPv4Network(cidr, strict=False)
+                    return str(net.broadcast_address)
 
     except Exception as e:
         if verbose_mode:
-            print(f"Failed to detect broadcast: {e}")
+            print(f"Could not detect broadcast: {e}")
 
-    return "255.255.255.255"
+    # Fallback guess: same /24
+    return f"{'.'.join(local_ip.split('.')[:3])}.255"
 
 
 def send_ping(my_info):
@@ -182,15 +112,33 @@ def get_mime_type(filepath):
 def send_broadcast(message, target_ports=None):
     """
     Sends a UDP broadcast to the detected subnet broadcast address.
+    Binds the sending socket to the preferred local IP so the OS uses that interface.
     """
     subnet_broadcast = get_subnet_broadcast()
     ports = target_ports if target_ports else list(range(50999, 50999 + 100))
+    local_ip = get_local_ip()
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            # Bind the socket to the preferred local IP (ephemeral port 0) so outgoing uses that NIC
+            try:
+                sock.bind((local_ip, 0))
+            except Exception as e:
+                if verbose_mode:
+                    print(
+                        f"Could not bind broadcast socket to {
+                            local_ip}: {e}"
+                    )
+
             for port in ports:
+                if verbose_mode:
+                    print(
+                        f"[broadcast] from {
+                            local_ip} -> {subnet_broadcast}:{port}"
+                    )
                 sock.sendto(message.encode("utf-8"), (subnet_broadcast, port))
+
     except Exception as e:
         print(f"Broadcast failed: {e}")
 
