@@ -1,7 +1,7 @@
 # main.py
 from network.socket_manager import start_listening
 from network.message_sender import send_ack
-from network.broadcast import send_profile, my_info, send_immediate_discovery
+from network.broadcast import my_info, send_immediate_discovery
 from ui.cli import start_cli
 from network.peer_registry import add_peer
 import threading
@@ -9,7 +9,6 @@ import socket
 import config
 from ui.utils import print_verbose, print_prompt
 import time
-from network.peer_registry import _peer_registry
 
 PROFILE_RESEND_INTERVAL = 10
 
@@ -47,26 +46,32 @@ def handle_message(message: str, addr: tuple) -> None:
 
         # Handle message types according to RFC
         if msg_type == "POST":
-            if config.verbose_mode:
-                print_verbose(
-                    f"\n[{content.get('TIMESTAMP', time.time())}] [POST] from {
-                        user_id}\n"
-                    f"CONTENT: {content.get('CONTENT', '')}\n"
-                    f"TTL: {content.get('TTL', '')}\n"
-                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}"
-                )
-            else:
-                print(f"\n{display_name}: {content.get('CONTENT', '')}\n")
-            print_prompt()
+            if user_id in config.followed_users:
+                if config.verbose_mode:
+                    print_verbose(
+                        f"\nTYPE: POST\n"
+                        f"USER_ID: {user_id}\n"
+                        f"CONTENT: {content.get('CONTENT', '')}\n"
+                        f"TTL: {content.get('TTL', '')}\n"
+                        f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                        f"TOKEN: {content.get('TOKEN', '')}\n"
+                        f"TIMESTAMP: {content.get(
+                            'TIMESTAMP', time.time())}\n\n"
+                    )
+                else:
+                    print(f"\n{display_name}: {content.get('CONTENT', '')}\n")
+                print_prompt()
 
         elif msg_type == "DM":
             if config.verbose_mode:
                 print_verbose(
-                    f"\n[{content.get('TIMESTAMP', time.time())}] [DM] from {
-                        user_id}\n"
+                    f"\nTYPE: DM\n"
+                    f"FROM: {user_id}\n"
                     f"TO: {content.get('TO', '')}\n"
                     f"CONTENT: {content.get('CONTENT', '')}\n"
-                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             else:
                 print(
@@ -82,9 +87,11 @@ def handle_message(message: str, addr: tuple) -> None:
         elif msg_type == "PROFILE":
             if config.verbose_mode:
                 print_verbose(
-                    f"\n[{time.time()}] [PROFILE] from {user_id}\n"
+                    f"\nTYPE: PROFILE\n"
+                    f"USER_ID: {user_id}\n"
                     f"DISPLAY_NAME: {display_name}\n"
-                    f"STATUS: {content.get('STATUS', '')}"
+                    f"STATUS: {content.get('STATUS', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n\n"
                 )
             else:
                 print(f"\n{display_name}: {content.get('STATUS', '')}\n")
@@ -92,13 +99,17 @@ def handle_message(message: str, addr: tuple) -> None:
 
         elif msg_type == "PING":
             if config.verbose_mode:
-                print_verbose(f"[{time.time()}] [PING] from {user_id}")
+                print_verbose(f"\nTYPE: PING\n" f"USER_ID: {user_id}\n\n")
 
         elif msg_type == "FOLLOW":
             if config.verbose_mode:
                 print_verbose(
-                    f"\n[{content.get('TIMESTAMP', time.time())}] [FOLLOW] from {
-                        user_id}"
+                    f"\nTYPE: FOLLOW\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"FROM: {user_id}\n"
+                    f"TO: {content.get('TO', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             else:
                 print(f"\nUser {display_name} has followed you\n")
@@ -107,8 +118,12 @@ def handle_message(message: str, addr: tuple) -> None:
         elif msg_type == "UNFOLLOW":
             if config.verbose_mode:
                 print_verbose(
-                    f"\n[{content.get('TIMESTAMP', time.time())}] [UNFOLLOW] from {
-                        user_id}"
+                    f"\nTYPE: UNFOLLOW\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"FROM: {user_id}\n"
+                    f"TO: {content.get('TO', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             else:
                 print(f"\nUser {display_name} has unfollowed you\n")
@@ -117,8 +132,12 @@ def handle_message(message: str, addr: tuple) -> None:
         elif msg_type == "ACK":
             if config.verbose_mode:
                 print_verbose(
-                    f"[{time.time()}] [ACK] for MESSAGE_ID: {
-                        content.get('MESSAGE_ID', '')}"
+                    f"\nTYPE: ACK\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"STATUS: {content.get('STATUS', '')}\n\n"
+                    f"Field Descriptions:\n"
+                    f"MESSAGE_ID: Identifier of original message.\n"
+                    f"STATUS: e.g., RECEIVED.\n"
                 )
             # Non-verbose: no output per RFC
 
