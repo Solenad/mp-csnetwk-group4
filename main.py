@@ -23,6 +23,11 @@ import config
 import time
 import base64
 from ui.image_display import display_image
+from network.group_manager import (
+    handle_group_create,
+    handle_group_update,
+    handle_group_message
+)
 
 PROFILE_RESEND_INTERVAL = 10
 initial_discovery = True
@@ -110,8 +115,7 @@ def handle_message(message: str, addr: tuple) -> None:
                         elif int(parts[1]) < time.time():
                             reason = "Token expired"
                         elif parts[2] != expected_scope:
-                            reason = f"Scope mismatch (expected {
-                                expected_scope})"
+                            reason = f"Scope mismatch (expected {expected_scope})"
                     except (ValueError, IndexError):
                         reason = "Invalid token structure"
 
@@ -133,8 +137,7 @@ def handle_message(message: str, addr: tuple) -> None:
                     try:
                         token_ip = token.split("|")[0].split("@")[1].split(":")[0]
                         print_verbose(
-                            f"IP MISMATCH: Token claims {
-                                token_ip} but came from {addr[0]}\n"
+                            f"IP MISMATCH: Token claims {token_ip} but came from {addr[0]}\n"
                         )
                     except (IndexError, AttributeError):
                         print_verbose("Invalid token format for IP verification\n")
@@ -164,8 +167,7 @@ def handle_message(message: str, addr: tuple) -> None:
                         f"TTL: {content.get('TTL', '')}\n"
                         f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
                         f"TOKEN: {content.get('TOKEN', '')}\n"
-                        f"TIMESTAMP: {content.get(
-                            'TIMESTAMP', time.time())}\n\n"
+                        f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n\n"
                     )
                 else:
                     print(f"\n{display_name}: {content.get('CONTENT', '')}\n")
@@ -189,8 +191,7 @@ def handle_message(message: str, addr: tuple) -> None:
                 )
             else:
                 print(
-                    f"\n[DM from {display_name}]: {
-                        content.get('CONTENT', '')}\n"
+                    f"\n[DM from {display_name}]: {content.get('CONTENT', '')}\n"
                 )
             print_prompt()
             if content.get("MESSAGE_ID"):
@@ -328,6 +329,47 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n\n"
                 )
             handle_result(content, addr, my_info)
+        
+        elif msg_type == "GROUP_CREATE":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: GROUP_CREATE\n"
+                    f"FROM: {content.get('FROM', '')}\n"
+                    f"GROUP_ID: {content.get('GROUP_ID', '')}\n"
+                    f"GROUP_NAME: {content.get('GROUP_NAME', '')}\n"
+                    f"MEMBERS: {content.get('MEMBERS', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+            handle_group_create(content, addr, my_info)
+
+        elif msg_type == "GROUP_UPDATE":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: GROUP_UPDATE\n"
+                    f"FROM: {content.get('FROM', '')}\n"
+                    f"GROUP_ID: {content.get('GROUP_ID', '')}\n"
+                    f"ADD: {content.get('ADD', '')}\n"
+                    f"REMOVE: {content.get('REMOVE', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+            handle_group_update(content, addr, my_info)
+
+        elif msg_type == "GROUP_MESSAGE":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: GROUP_MESSAGE\n"
+                    f"FROM: {content.get('FROM', '')}\n"
+                    f"GROUP_ID: {content.get('GROUP_ID', '')}\n"
+                    f"CONTENT: {content.get('CONTENT', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+            handle_group_message(content, addr, my_info)
         elif msg_type == "LIKE":
             post_timestamp = content.get("POST_TIMESTAMP")
             action = content.get("ACTION", "LIKE").upper()
@@ -357,13 +399,11 @@ def handle_message(message: str, addr: tuple) -> None:
             else:
                 if action == "LIKE":
                     print(
-                        f"\n{display_name} liked your post from {
-                            time.ctime(int(post_timestamp))}\n"
+                        f"\n{display_name} liked your post from {time.ctime(int(post_timestamp))}\n"
                     )
                 else:
                     print(
-                        f"\n{display_name} unliked your post from {
-                            time.ctime(int(post_timestamp))}\n"
+                        f"\n{display_name} unliked your post from {time.ctime(int(post_timestamp))}\n"
                     )
             print_prompt()
 
