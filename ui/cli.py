@@ -8,6 +8,7 @@ from network.message_sender import (
     send_follow,
     send_unfollow,
     send_like,
+    send_file_offer,
 )
 from network.broadcast import send_profile
 from network.peer_registry import get_peer_list, get_peer
@@ -152,11 +153,9 @@ def cmd_help(_args):
         "test all                          - Run all protocol compliance tests",
         "like <timestamp> [unlike]         - Like/unlike a post",
         "set_avatar <path>                 - Set your profile picture",
-        "",
-        "Protocol Format:",
-        "  - KEY: VALUE lines",
-        "  - Terminate with \\n\\n",
-        "  - Broadcast address: 255.255.255.255:50999",
+        "file send <user> <path> [desc]    - Send a file to user",
+        "file accept <fileid>              - Accept incoming file transfer",
+        "file reject <fileid>              - Reject incoming file transfer",
     ]
     for cmd in commands:
         if cmd:
@@ -278,6 +277,7 @@ def cmd_test(args):
 
     return True
 
+
 def cmd_like(args):
     """Send a like to a post"""
     if len(args) < 1:
@@ -347,6 +347,53 @@ def cmd_show_avatar(args):
         print_error(f"Failed to display avatar: {e}")
     return True
 
+
+def cmd_file(args):
+    """Handle file transfer commands"""
+    if len(args) < 2:
+        print_error("Usage: file send <recipient> <filepath> [description]")
+        print_error("       file accept <fileid>")
+        print_error("       file reject <fileid>")
+        return True
+
+    subcmd = args[0]
+
+    if subcmd == "send":
+        if len(args) < 3:
+            print_error("Usage: file send <recipient> <filepath> [description]")
+            return True
+
+        recipient = args[1]
+        filepath = args[2]
+        description = " ".join(args[3:]) if len(args) > 3 else "No description"
+
+        if send_file_offer(recipient, filepath, description, my_info):
+            print_success(f"File offer sent for {filepath}")
+        else:
+            print_error("Failed to send file offer")
+
+    elif subcmd == "accept":
+        fileid = args[1]
+        if fileid in config.incoming_files:
+            print_success(f"Accepting file {fileid}")
+            # The actual transfer happens automatically when chunks arrive
+        else:
+            print_error(f"No pending file with ID {fileid}")
+
+    elif subcmd == "reject":
+        fileid = args[1]
+        if fileid in config.incoming_files:
+            print_success(f"Rejected file {fileid}")
+            del config.incoming_files[fileid]
+        else:
+            print_error(f"No pending file with ID {fileid}")
+
+    else:
+        print_error(f"Unknown file subcommand: {subcmd}")
+
+    return True
+
+
 def start_cli(info):
     global my_info
     my_info = info
@@ -373,6 +420,33 @@ def start_cli(info):
             break
 
 
+def cmd_accept_file(args):
+    """Handle 'y' command to accept file transfer"""
+    if not config.pending_file_offer:
+        print_error("No pending file offer to accept")
+        return True
+
+    fileid = config.pending_file_offer["fileid"]
+    print_success(f"Accepting file {fileid}")
+    # The transfer will proceed automatically as chunks arrive
+    config.pending_file_offer = None
+    return True
+
+
+def cmd_reject_file(args):
+    """Handle 'n' command to reject file transfer"""
+    if not config.pending_file_offer:
+        print_error("No pending file offer to reject")
+        return True
+
+    fileid = config.pending_file_offer["fileid"]
+    print_success(f"Rejected file {fileid}")
+    if fileid in config.incoming_files:
+        del config.incoming_files[fileid]
+    config.pending_file_offer = None
+    return True
+
+
 command_registry = {
     "exit": cmd_exit,
     "whoami": cmd_whoami,
@@ -385,4 +459,7 @@ command_registry = {
     "test": cmd_test,
     "like": cmd_like,
     "set_avatar": cmd_set_avatar,
+    "file": cmd_file,
+    "y": cmd_accept_file,
+    "n": cmd_reject_file,
 }

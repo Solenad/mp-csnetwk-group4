@@ -9,3 +9,6 @@ TOKEN_TTL = {
 }
 followed_users = set()
 liked_posts = set()
+active_file_transfers = {}  # Outgoing file transfers
+incoming_files = {}  # Incoming file transfers
+pending_file_offer = None
