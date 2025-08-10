@@ -25,6 +25,12 @@ def handle_message(message: str, addr: tuple) -> None:
         msg_type = content.get("TYPE")
         user_id = content.get("USER_ID") or content.get("FROM")
 
+        if not user_id:
+            return
+
+        if user_id == my_info["user_id"]:
+            return
+
         # Add/update peer information
         display_name = content.get("DISPLAY_NAME", user_id.split("@")[0])
         add_peer(
@@ -157,22 +163,22 @@ if __name__ == "__main__":
         }
     )
 
-    # Enhanced discovery process
-    def discovery_loop():
-        """Send PROFILE every 300 seconds (5 minutes) per RFC"""
-        while True:
-            send_profile(my_info)  # Send full profile first
-            time.sleep(300)  # Wait 5 minutes per RFC
-
-    # Start discovery thread
-    threading.Thread(target=discovery_loop, daemon=True).start()
+    # # Enhanced discovery process
+    # def discovery_loop():
+    #     """Send PROFILE every 300 seconds (5 minutes) per RFC"""
+    #     while True:
+    #         send_profile(my_info)  # Send full profile first
+    #         time.sleep(300)  # Wait 5 minutes per RFC
+    #
+    # # Start discovery thread
+    # threading.Thread(target=discovery_loop, daemon=True).start()
 
     # Also send PING messages periodically
     def ping_loop():
-        """Send PING every 60 seconds (more frequent than PROFILE)"""
+        """Send PING every 300 seconds"""
         while True:
             send_ping(my_info)
-            time.sleep(60)
+            time.sleep(300)
 
     threading.Thread(target=ping_loop, daemon=True).start()
 
