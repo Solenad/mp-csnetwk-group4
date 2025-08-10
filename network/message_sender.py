@@ -1,6 +1,7 @@
 # network/message_sender.py
 from network.peer_registry import get_peer_list, get_peer
 from network.broadcast import send_broadcast
+from network.token_utils import generate_token
 import socket
 from typing import Dict
 import time
@@ -23,7 +24,7 @@ def send_unicast(message, recipient_addr):
 def send_post(content, sender_info):
     timestamp = int(time.time())
     message_id = secrets.token_hex(4)
-    token = f"{sender_info['user_id']}|{timestamp + DEFAULT_TTL}|broadcast"
+    token = generate_token(sender_info["user_id"], "broadcast")
 
     message = (
         "TYPE: POST\n"
@@ -61,7 +62,7 @@ def send_dm(recipient_id: str, content: str, sender_info: Dict) -> bool:
 
     timestamp = int(time.time())
     message_id = secrets.token_hex(4)
-    token = f"{sender_info['user_id']}|{timestamp + DEFAULT_TTL}|chat"
+    token = generate_token(sender_info["user_id"], "chat")
 
     message = (
         "TYPE: DM\n"
@@ -82,8 +83,7 @@ def send_follow(user_id_to_follow, sender_info):
         if peer["user_id"] == user_id_to_follow:
             timestamp = int(time.time())
             message_id = secrets.token_hex(4)
-            token = f"{sender_info['user_id']}|{
-                timestamp + DEFAULT_TTL}|follow"
+            token = generate_token(sender_info["user_id"], "follow")
 
             message = (
                 "TYPE: FOLLOW\n"
@@ -119,8 +119,7 @@ def send_unfollow(user_id_to_unfollow, sender_info):
         if peer["user_id"] == user_id_to_unfollow:
             timestamp = int(time.time())
             message_id = secrets.token_hex(4)
-            token = f"{sender_info['user_id']}|{
-                timestamp + DEFAULT_TTL}|follow"
+            token = generate_token(sender_info["user_id"], "follow")
 
             message = (
                 "TYPE: UNFOLLOW\n"
@@ -173,12 +172,7 @@ def send_ack(message_id: str, recipient_user_id: str):
             port = peer["port"]
         ip = peer["ip"]
 
-    ack_message = (
-        "TYPE: ACK\n"
-        f"MESSAGE_ID: {
-            message_id}\n"
-        "STATUS: RECEIVED\n\n"
-    )
+    ack_message = "TYPE: ACK\n" f"MESSAGE_ID: {message_id}\n" "STATUS: RECEIVED\n\n"
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.sendto(ack_message.encode("utf-8"), (ip, port))

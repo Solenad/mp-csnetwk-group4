@@ -63,20 +63,19 @@ def get_subnet_broadcast():
     return f"{'.'.join(local_ip.split('.')[:3])}.255"
 
 
-def send_ping(my_info):
+def send_ping(my_info, port=50999):
     """RFC-compliant PING message"""
     message = "TYPE: PING\n" f"USER_ID: {my_info['user_id']}\n\n"
-    send_broadcast(message)
+    send_broadcast(message, target_ports=[port])
 
 
-def send_profile(my_info: Dict) -> None:
-    """Send PROFILE message with current port (RFC Section 5.1)"""
+def send_profile(my_info: Dict, port=50999) -> None:
     message = (
         "TYPE: PROFILE\n"
         f"USER_ID: {my_info['user_id']}\n"
         f"DISPLAY_NAME: {my_info['username']}\n"
         f"STATUS: {my_info.get('status', 'Active')}\n"
-        f"PORT: {my_info.get('port', 50999)}\n"
+        f"PORT: {my_info.get('port', port)}\n\n"
     )
 
     avatar_path = my_info.get("avatar_path")
@@ -87,14 +86,14 @@ def send_profile(my_info: Dict) -> None:
                 message += (
                     f"AVATAR_TYPE: {get_mime_type(avatar_path)}\n"
                     "AVATAR_ENCODING: base64\n"
-                    f"AVATAR_DATA: {avatar_data}\n"
+                    f"AVATAR_DATA: {avatar_data}\n\n"
                 )
         except Exception as e:
             if verbose_mode:
                 print(f"Failed to include avatar: {e}")
 
     message += "\n\n"
-    send_broadcast(message)
+    send_broadcast(message, target_ports=[port])
 
 
 def get_mime_type(filepath):
@@ -110,43 +109,39 @@ def get_mime_type(filepath):
 def send_broadcast(message, target_ports=None):
     """
     Sends a UDP broadcast to the detected subnet broadcast address.
-    For testing, defaults to port 50999 only.
+    Use target_ports if specified, else use default port 50999.
     """
     subnet_broadcast = get_subnet_broadcast()
-    ports = target_ports if target_ports else [50999]  # fixed to main listening port
+    ports = target_ports if target_ports else [50999]  # default port
     local_ip = get_local_ip()
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            # Bind the socket to the preferred local IP (ephemeral port 0) so outgoing uses that NIC
+            # Bind to 0.0.0.0 ephemeral port
             try:
-                sock.bind((local_ip, 0))
+                sock.bind(("0.0.0.0", 0))
             except Exception as e:
                 if verbose_mode:
-                    print(
-                        f"Could not bind broadcast socket to {
-                            local_ip}: {e}"
-                    )
+                    print(f"Could not bind broadcast socket: {e}")
 
             for port in ports:
                 if verbose_mode:
                     print(
                         f"[broadcast] sending from {
-                          local_ip} -> {subnet_broadcast}:{port}"
+                            local_ip} -> {subnet_broadcast}:{port}"
                     )
                 sock.sendto(message.encode("utf-8"), (subnet_broadcast, port))
     except Exception as e:
         print(f"Broadcast failed: {e}")
 
 
-def send_immediate_discovery(my_info):
-    """Send initial discovery bursts per RFC"""
+def send_immediate_discovery(my_info, port=50999):
     for _ in range(3):
-        send_profile(my_info)
+        send_profile(my_info, port=port)
         time.sleep(0.5)
     for _ in range(3):
-        send_ping(my_info)
+        send_ping(my_info, port=port)
         time.sleep(0.5)
 
 

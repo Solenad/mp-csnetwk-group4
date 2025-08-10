@@ -11,7 +11,8 @@ from network.broadcast import (
 from ui.cli import start_cli
 from network.peer_registry import add_peer
 from network.tictactoe import handle_invite, handle_move, handle_result
-from ui.utils import print_verbose, print_prompt
+from ui.utils import print_verbose, print_prompt, print_error
+from network.token_utils import validate_token, verify_token_ip, revoke_token
 import threading
 import config
 import time
@@ -45,6 +46,22 @@ def handle_message(message: str, addr: tuple) -> None:
 
         # Parse message into key-value pairs
         content = {}
+        token_validation_map = {
+            "POST": "broadcast",
+            "DM": "chat",
+            "FOLLOW": "follow",
+            "UNFOLLOW": "follow",
+            "FILE_OFFER": "file",
+            "FILE_CHUNK": "file",
+            "TICTACTOE_INVITE": "game",
+            "TICTACTOE_MOVE": "game",
+            "TICTACTOE_RESULT": "game",
+            "LIKE": "broadcast",
+            "GROUP_CREATE": "group",
+            "GROUP_UPDATE": "group",
+            "GROUP_MESSAGE": "group",
+            "REVOKE": "chat",  # REVOKE uses chat scope per RFC
+        }
         for line in message.splitlines():
             if ":" in line:
                 key, value = line.split(":", 1)
@@ -52,6 +69,7 @@ def handle_message(message: str, addr: tuple) -> None:
 
         msg_type = content.get("TYPE")
         user_id = content.get("USER_ID") or content.get("FROM")
+        token = content.get("TOKEN", "")
 
         if not user_id:
             print_error("Invalid message: missing USER_ID/FROM field")
@@ -59,6 +77,61 @@ def handle_message(message: str, addr: tuple) -> None:
 
         if user_id == my_info["user_id"]:
             return
+
+        # Handle REVOKE message first since it doesn't need token validation
+        if msg_type == "REVOKE":
+            revoke_token(token)
+            if config.verbose_mode:
+                print_verbose(f"\nTYPE: REVOKE\nTOKEN: {token}\n\n")
+            return
+
+        # Validate token for all other message types
+        if msg_type in token_validation_map:
+            expected_scope = token_validation_map[msg_type]
+            is_valid = validate_token(token, expected_scope)
+
+            if config.verbose_mode:
+                validation_status = "VALID" if is_valid else "INVALID"
+                reason = ""
+                if not is_valid:
+                    try:
+                        parts = token.split("|")
+                        if len(parts) != 3:
+                            reason = "Malformed token format"
+                        elif token in revoked_tokens:
+                            reason = "Token revoked"
+                        elif int(parts[1]) < time.time():
+                            reason = "Token expired"
+                        elif parts[2] != expected_scope:
+                            reason = f"Scope mismatch (expected {
+                                expected_scope})"
+                    except (ValueError, IndexError):
+                        reason = "Invalid token structure"
+
+                print_verbose(
+                    f"TOKEN VALIDATION: {validation_status}\n"
+                    f" - Token: {token}\n"
+                    f" - Expected scope: {expected_scope}\n"
+                    f" - Reason: {reason if reason else 'Valid token'}\n"
+                )
+
+            if not is_valid:
+                print_error(f"Invalid token for {msg_type}")
+                return
+
+            # Verify token IP matches sender IP
+            if not verify_token_ip(token, addr[0]):
+                print_error("Token IP does not match sender IP")
+                if config.verbose_mode:
+                    try:
+                        token_ip = token.split("|")[0].split("@")[1].split(":")[0]
+                        print_verbose(
+                            f"IP MISMATCH: Token claims {
+                                token_ip} but came from {addr[0]}\n"
+                        )
+                    except (IndexError, AttributeError):
+                        print_verbose("Invalid token format for IP verification\n")
+                return
 
         # Add/update peer info
         display_name = content.get("DISPLAY_NAME", user_id.split("@")[0])
@@ -110,7 +183,7 @@ def handle_message(message: str, addr: tuple) -> None:
             else:
                 print(
                     f"\n[DM from {display_name}]: {
-                      content.get('CONTENT', '')}\n"
+                        content.get('CONTENT', '')}\n"
                 )
             print_prompt()
             if content.get("MESSAGE_ID"):
@@ -249,7 +322,7 @@ if __name__ == "__main__":
         global initial_discovery
         start_time = time.time()
         while time.time() - start_time < 5:
-            send_immediate_discovery(my_info)
+            send_immediate_discovery(my_info, port=port)  # Pass port here
             time.sleep(1)
         initial_discovery = False
 
@@ -257,7 +330,7 @@ if __name__ == "__main__":
 
     def ping_loop():
         while True:
-            send_ping(my_info)
+            send_ping(my_info, port=port)  # Pass port here too
             time.sleep(300)
 
     threading.Thread(target=ping_loop, daemon=True).start()

@@ -58,7 +58,7 @@ def start_listening(callback):
             try:
                 data, addr = sock.recvfrom(BUFFER_SIZE)
                 if data:
-                    message = data.decode("utf-8", errors="ignore").strip()
+                    message = data.decode("utf-8", errors="ignore")
                     if message:
                         callback(message, addr)
             except Exception as e:
