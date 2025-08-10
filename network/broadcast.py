@@ -5,7 +5,6 @@ import os
 import time
 import subprocess
 import platform
-import re
 import ipaddress
 from typing import Dict
 from config import verbose_mode
@@ -111,30 +110,25 @@ def get_mime_type(filepath):
 def send_broadcast(message, target_ports=None):
     """
     Sends a UDP broadcast to the detected subnet broadcast address.
-    Binds the sending socket to the preferred local IP so the OS uses that interface.
+    For testing, defaults to port 50999 only.
     """
     subnet_broadcast = get_subnet_broadcast()
-    ports = target_ports if target_ports else list(range(50999, 50999 + 100))
+    ports = target_ports if target_ports else [50999]  # fixed to main listening port
     local_ip = get_local_ip()
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            # Bind the socket to the preferred local IP (ephemeral port 0) so outgoing uses that NIC
-            try:
-                sock.bind((local_ip, 0))
-            except Exception as e:
-                if verbose_mode:
-                    print(
-                        f"Could not bind broadcast socket to {
-                            local_ip}: {e}"
-                    )
+
+            # For testing: don't bind to local_ip, let OS choose interface
+            # This avoids issues where wrong interface IP prevents sending
+            # If needed later, re-enable with: sock.bind((local_ip, 0))
 
             for port in ports:
                 if verbose_mode:
                     print(
-                        f"[broadcast] from {
-                            local_ip} -> {subnet_broadcast}:{port}"
+                        f"[broadcast] sending from {
+                          local_ip} -> {subnet_broadcast}:{port}"
                     )
                 sock.sendto(message.encode("utf-8"), (subnet_broadcast, port))
     except Exception as e:
