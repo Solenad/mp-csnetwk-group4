@@ -74,7 +74,6 @@ def send_broadcast(message, target_ports=None):
             ports = (
                 target_ports
                 if target_ports
-                # Full port range (per your prior code)
                 else list(range(50999, 50999 + 100))
             )
             for port in ports:
