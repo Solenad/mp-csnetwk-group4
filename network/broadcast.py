@@ -21,6 +21,7 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
+
 def get_subnet_broadcast():
     system = platform.system().lower()
 
@@ -67,52 +68,70 @@ def get_subnet_broadcast():
     # Fallback
     return "255.255.255.255"
 
-def get_broadcast_ip():
-    """
-    Returns the broadcast IP of the default interface.
-    Works on Linux (Fedora, Ubuntu, etc.).
-    """
-    try:
-        # Get default interface IP
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
-        s.close()
 
-        # Calculate broadcast from IP + netmask
-        iface = get_interface_name(local_ip)
-        if iface:
-            return get_iface_broadcast(iface)
+def get_subnet_broadcast():
+    """
+    Detect the LAN broadcast address without netifaces.
+    Prefers 192.168.x.x (then other private ranges).
+    Works on Windows and Linux.
+    """
+    system = platform.system().lower()
+
+    try:
+        if system == "windows":
+            result = subprocess.run(
+                ["ipconfig"], capture_output=True, text=True, check=True
+            ).stdout
+
+            # Find all IPv4 + mask pairs
+            matches = re.findall(
+                r"IPv4 Address.*?: (\d+\.\d+\.\d+\.\d+).*?"
+                r"Subnet Mask.*?: (\d+\.\d+\.\d+\.\d+)",
+                result,
+                flags=re.DOTALL,
+            )
+
+            chosen_ip, chosen_mask = None, None
+            for ip_str, mask_str in matches:
+                if ip_str.startswith("192.168."):
+                    chosen_ip, chosen_mask = ip_str, mask_str
+                    break
+                elif ipaddress.ip_address(ip_str).is_private:
+                    chosen_ip, chosen_mask = ip_str, mask_str
+
+            if chosen_ip and chosen_mask:
+                net = ipaddress.IPv4Network(f"{chosen_ip}/{chosen_mask}", strict=False)
+                return str(net.broadcast_address)
+
+        elif system == "linux":
+            result = subprocess.run(
+                ["ip", "-4", "addr", "show", "scope", "global"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+
+            candidates = []
+            for line in result.splitlines():
+                line = line.strip()
+                if line.startswith("inet "):
+                    parts = line.split()
+                    ip_cidr = parts[1]
+                    ip_str = ip_cidr.split("/")[0]
+                    net = ipaddress.ip_network(ip_cidr, strict=False)
+                    candidates.append((ip_str, str(net.broadcast_address)))
+
+            # Prefer 192.168.x.x
+            for ip_str, brd in candidates:
+                if ip_str.startswith("192.168."):
+                    return brd
+            if candidates:
+                return candidates[0][1]
+
     except Exception as e:
         if verbose_mode:
-            print(f"Error getting broadcast IP: {e}")
-    return "255.255.255.255"
+            print(f"Failed to detect broadcast: {e}")
 
-
-def get_interface_name(ip_addr):
-    """
-    Finds the interface name for a given IP address.
-    """
-    import netifaces
-
-    for iface in netifaces.interfaces():
-        addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET, [])
-        for addr in addrs:
-            if addr.get("addr") == ip_addr:
-                return iface
-    return None
-
-
-def get_iface_broadcast(iface_name):
-    """
-    Uses netifaces to get the broadcast address of an interface.
-    """
-    import netifaces
-
-    addrs = netifaces.ifaddresses(iface_name).get(netifaces.AF_INET, [])
-    for addr in addrs:
-        if "broadcast" in addr:
-            return addr["broadcast"]
     return "255.255.255.255"
 
 
@@ -132,7 +151,6 @@ def send_profile(my_info: Dict) -> None:
         f"PORT: {my_info.get('port', 50999)}\n"
     )
 
-    # Optional avatar handling
     avatar_path = my_info.get("avatar_path")
     if avatar_path and os.path.exists(avatar_path):
         try:
@@ -147,7 +165,6 @@ def send_profile(my_info: Dict) -> None:
             if verbose_mode:
                 print(f"Failed to include avatar: {e}")
 
-    # RFC requires messages to end with a blank line (i.e., \n\n)
     message += "\n\n"
     send_broadcast(message)
 
@@ -164,32 +181,25 @@ def get_mime_type(filepath):
 
 def send_broadcast(message, target_ports=None):
     """
-    Sends a UDP broadcast to both the subnet broadcast address and the global broadcast.
+    Sends a UDP broadcast to the detected subnet broadcast address.
     """
     subnet_broadcast = get_subnet_broadcast()
-    # use a set to avoid duplicates
-    broadcast_targets = {subnet_broadcast, "255.255.255.255"}
-
     ports = target_ports if target_ports else list(range(50999, 50999 + 100))
 
     try:
-        broadcast_ip = get_broadcast_ip()
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            for target in broadcast_targets:
-                for port in ports:
-                    sock.sendto(message.encode("utf-8"), (target, port))
+            for port in ports:
+                sock.sendto(message.encode("utf-8"), (subnet_broadcast, port))
     except Exception as e:
         print(f"Broadcast failed: {e}")
 
 
 def send_immediate_discovery(my_info):
     """Send initial discovery bursts per RFC"""
-    # Send 3 quick PROFILEs first
     for _ in range(3):
         send_profile(my_info)
         time.sleep(0.5)
-    # Then send PINGs to establish presence
     for _ in range(3):
         send_ping(my_info)
         time.sleep(0.5)
