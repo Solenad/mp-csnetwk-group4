@@ -45,7 +45,6 @@ def get_subnet_broadcast():
                     if current_ip == local_ip:
                         net = ipaddress.IPv4Network(f"{local_ip}/{mask}", strict=False)
                         return str(net.broadcast_address)
-
         elif system == "linux":
             output = subprocess.check_output(
                 ["ip", "-4", "addr", "show", "scope", "global"], encoding="utf-8"
@@ -138,7 +137,6 @@ def send_broadcast(message, target_ports=None):
                             local_ip} -> {subnet_broadcast}:{port}"
                     )
                 sock.sendto(message.encode("utf-8"), (subnet_broadcast, port))
-
     except Exception as e:
         print(f"Broadcast failed: {e}")
 
