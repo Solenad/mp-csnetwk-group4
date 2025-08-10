@@ -135,8 +135,7 @@ def send_broadcast(message, target_ports=None):
             for port in ports:
                 if verbose_mode:
                     print(
-                        f"[broadcast] sending from {
-                            local_ip} -> {subnet_broadcast}:{port}"
+                        f"[broadcast] sending from {local_ip} -> {subnet_broadcast}:{port}"
                     )
                 sock.sendto(message.encode("utf-8"), (subnet_broadcast, port))
     except Exception as e:

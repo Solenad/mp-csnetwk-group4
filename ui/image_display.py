@@ -23,8 +23,7 @@ def display_image(data: str, display_name: str, width: int = 30) -> bool:
             with BytesIO() as output:
                 img.save(output, format="PNG")
                 print(
-                    f"\033_Ga=T,f=100,t=d;{standard_b64encode(
-                        output.getvalue()).decode()}\033\\"
+                    f"\033_Ga=T,f=100,t=d;{standard_b64encode(output.getvalue()).decode()}\033\\"
                 )
             return True
 
@@ -33,8 +32,7 @@ def display_image(data: str, display_name: str, width: int = 30) -> bool:
             from base64 import standard_b64encode
 
             print(
-                f"\033]1337;File=inline=1;width={width}px;preserveAspectRatio=1:{
-                    standard_b64encode(img_data).decode()}\a"
+                f"\033]1337;File=inline=1;width={width}px;preserveAspectRatio=1:{standard_b64encode(img_data).decode()}\a"
             )
             return True
 

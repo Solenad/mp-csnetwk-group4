@@ -20,6 +20,7 @@ from network.token_utils import generate_token
 import base64
 import os
 from network.broadcast import get_mime_type
+from network.group_manager import create_group, update_group, get_user_groups, get_group_members, send_group_message    
 
 console = Console()
 
@@ -113,8 +114,7 @@ def cmd_send(args):
                 from network.broadcast import get_subnet_broadcast
 
                 print(
-                    f"[hello] Sending PROFILE broadcast to {
-                        get_subnet_broadcast()}:50999"
+                    f"[hello] Sending PROFILE broadcast to {get_subnet_broadcast()}:50999"
                 )
             send_profile(my_info)
             print_success("Profile broadcast sent to network")
@@ -238,8 +238,7 @@ def cmd_test(args):
         message = " ".join(args[2:])
 
         print_info(
-            f"=== TEST UNICAST ===\nTo: {
-                recipient}\nMessage: {message}"
+            f"=== TEST UNICAST ===\nTo: {recipient}\nMessage: {message}"
         )
 
         if send_dm(recipient, message, my_info):
@@ -291,8 +290,7 @@ def cmd_like(args):
         if send_like(post_timestamp, my_info, action):
             verb = "unliked" if action == "UNLIKE" else "liked"
             print_success(
-                f"Successfully {verb} post from {
-                    time.ctime(post_timestamp)}"
+                f"Successfully {verb} post from {time.ctime(post_timestamp)}"
             )
     except ValueError:
         print_error("Invalid timestamp - must be integer")
@@ -315,8 +313,7 @@ def cmd_set_avatar(args):
             my_info["avatar_data"] = base64.b64encode(f.read()).decode("utf-8")
             my_info["avatar_type"] = get_mime_type(avatar_path)
         print_success(
-            f"Avatar set from {
-                avatar_path}. Send 'hello' to update your profile."
+            f"Avatar set from {avatar_path}. Send 'hello' to update your profile."
         )
     except Exception as e:
         print_error(f"Failed to load avatar: {e}")
@@ -419,6 +416,112 @@ def start_cli(info):
             print_error("\nInterrupted.")
             break
 
+def cmd_groups(args):
+    """List all groups or show members of a specific group"""
+    if not args:
+        # List all groups user belongs to
+        groups = get_user_groups(my_info["user_id"])
+        if not groups:
+            print_info("You are not in any groups")
+            return True
+
+        table = Table(title="Your Groups")
+        table.add_column("ID", style="cyan")
+        table.add_column("Name", style="magenta")
+        table.add_column("Members", style="green")
+
+        for group in groups:
+            table.add_row(group["id"], group["name"], str(group["members"]))
+        console.print(table)
+    elif args[0] == "members" and len(args) == 2:
+        # Show members of a specific group
+        group_id = args[1]
+        members = get_group_members(group_id)
+        if not members:
+            print_error(f"Group {group_id} not found or you're not a member")
+            return True
+
+        print_info(f"Members of group {group_id}:")
+        for member in members:
+            print(f" - {member}")
+    else:
+        print_error("Usage: groups | groups members <group_id>")
+    return True
+
+def cmd_group_create(args):
+    """Create a new group"""
+    if len(args) < 2:
+        print_error("Usage: group_create <group_id> <group_name> [member1,member2,...]")
+        return True
+
+    group_id = args[0]
+    group_name = args[1]
+    members = args[2].split(",") if len(args) > 2 else []
+    
+    if create_group(group_id, group_name, members, my_info):
+        print_success(f"Group {group_name} created with ID {group_id}")
+    return True
+
+def cmd_group_update(args):
+    """Update group membership"""
+    if len(args) < 4:
+        print_error("Usage: group_update <group_id> add <member1,member2,...> | remove <member1,member2,...>")
+        return True
+
+    group_id = args[0]
+    action = args[1]
+    members = args[2].split(",")
+
+    if action == "add":
+        if update_group(group_id, members, [], my_info):
+            print_success(f"Added members to group {group_id}")
+    elif action == "remove":
+        if update_group(group_id, [], members, my_info):
+            print_success(f"Removed members from group {group_id}")
+    else:
+        print_error("Invalid action. Use 'add' or 'remove'")
+    return True
+
+def cmd_group_message(args):
+    """Send a message to a group"""
+    if len(args) < 2:
+        print_error("Usage: group_message <group_id> <message>")
+        return True
+
+    group_id = args[0]
+    message = " ".join(args[1:])
+    
+    if send_group_message(group_id, message, my_info):
+        print_success(f"Message sent to group {group_id}")
+    return True
+
+
+def cmd_accept_file(args):
+    """Handle 'y' command to accept file transfer"""
+    if not config.pending_file_offer:
+        print_error("No pending file offer to accept")
+        return True
+
+    fileid = config.pending_file_offer["fileid"]
+    print_success(f"Accepting file {fileid}")
+    # The transfer will proceed automatically as chunks arrive
+    config.pending_file_offer = None
+    return True
+
+
+def cmd_reject_file(args):
+    """Handle 'n' command to reject file transfer"""
+    if not config.pending_file_offer:
+        print_error("No pending file offer to reject")
+        return True
+
+    fileid = config.pending_file_offer["fileid"]
+    print_success(f"Rejected file {fileid}")
+    if fileid in config.incoming_files:
+        del config.incoming_files[fileid]
+    config.pending_file_offer = None
+    return True
+
 
 def cmd_accept_file(args):
     """Handle 'y' command to accept file transfer"""
@@ -453,6 +556,8 @@ command_registry = {
     "peers": cmd_peers,
     "send": cmd_send,
     "groups": cmd_groups,
+    "group_create": cmd_group_create,
+    "group_update": cmd_group_update,
     "help": cmd_help,
     "verbose": cmd_verbose,
     "ttt": cmd_ttt,

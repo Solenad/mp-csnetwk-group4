@@ -79,8 +79,7 @@ def send_invite(recipient_id, symbol, sender_info):
     }
 
     print_success(
-        f"Invite sent to {recipient_id} for game {
-                  game_id} as {symbol}"
+        f"Invite sent to {recipient_id} for game {game_id} as {symbol}"
     )
     print_prompt()
     return True
