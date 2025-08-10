@@ -420,6 +420,33 @@ def start_cli(info):
             break
 
 
+def cmd_accept_file(args):
+    """Handle 'y' command to accept file transfer"""
+    if not config.pending_file_offer:
+        print_error("No pending file offer to accept")
+        return True
+
+    fileid = config.pending_file_offer["fileid"]
+    print_success(f"Accepting file {fileid}")
+    # The transfer will proceed automatically as chunks arrive
+    config.pending_file_offer = None
+    return True
+
+
+def cmd_reject_file(args):
+    """Handle 'n' command to reject file transfer"""
+    if not config.pending_file_offer:
+        print_error("No pending file offer to reject")
+        return True
+
+    fileid = config.pending_file_offer["fileid"]
+    print_success(f"Rejected file {fileid}")
+    if fileid in config.incoming_files:
+        del config.incoming_files[fileid]
+    config.pending_file_offer = None
+    return True
+
+
 command_registry = {
     "exit": cmd_exit,
     "whoami": cmd_whoami,
@@ -433,4 +460,6 @@ command_registry = {
     "like": cmd_like,
     "set_avatar": cmd_set_avatar,
     "file": cmd_file,
+    "y": cmd_accept_file,
+    "n": cmd_reject_file,
 }

@@ -1,6 +1,7 @@
 # network/message_sender.py
+import os
 from network.peer_registry import get_peer_list, get_peer
-from network.broadcast import send_broadcast
+from network.broadcast import send_broadcast, get_mime_type
 from network.token_utils import generate_token
 import socket
 import config
