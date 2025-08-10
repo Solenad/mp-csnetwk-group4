@@ -18,6 +18,55 @@ def get_local_ip():
         return "127.0.0.1"
 
 
+def get_broadcast_ip():
+    """
+    Returns the broadcast IP of the default interface.
+    Works on Linux (Fedora, Ubuntu, etc.).
+    """
+    try:
+        # Get default interface IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+
+        # Calculate broadcast from IP + netmask
+        iface = get_interface_name(local_ip)
+        if iface:
+            return get_iface_broadcast(iface)
+    except Exception as e:
+        if verbose_mode:
+            print(f"Error getting broadcast IP: {e}")
+    return "255.255.255.255"
+
+
+def get_interface_name(ip_addr):
+    """
+    Finds the interface name for a given IP address.
+    """
+    import netifaces
+
+    for iface in netifaces.interfaces():
+        addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET, [])
+        for addr in addrs:
+            if addr.get("addr") == ip_addr:
+                return iface
+    return None
+
+
+def get_iface_broadcast(iface_name):
+    """
+    Uses netifaces to get the broadcast address of an interface.
+    """
+    import netifaces
+
+    addrs = netifaces.ifaddresses(iface_name).get(netifaces.AF_INET, [])
+    for addr in addrs:
+        if "broadcast" in addr:
+            return addr["broadcast"]
+    return "255.255.255.255"
+
+
 def send_ping(my_info):
     """RFC-compliant PING message"""
     message = "TYPE: PING\n" f"USER_ID: {my_info['user_id']}\n\n"
@@ -66,11 +115,12 @@ def get_mime_type(filepath):
 
 def send_broadcast(message, target_ports=None):
     try:
+        broadcast_ip = get_broadcast_ip()
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             ports = target_ports if target_ports else list(range(50999, 50999 + 100))
             for port in ports:
-                sock.sendto(message.encode("utf-8"), ("255.255.255.255", port))
+                sock.sendto(message.encode("utf-8"), (broadcast_ip, port))
     except Exception as e:
         print(f"Broadcast failed: {e}")
 
@@ -92,5 +142,4 @@ my_info = {
     "hostname": socket.gethostname(),
     "user_id": f"User{int(time.time()) % 1000}@{get_local_ip()}",
     "status": "Available",
-    # Removed avatar_path since it's optional
 }
