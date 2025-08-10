@@ -88,9 +88,6 @@ def get_subnet_broadcast():
     return "255.255.255.255"
 
 
-# Removed get_interface_name and get_iface_broadcast (netifaces dependency)
-
-
 def send_ping(my_info):
     """RFC-compliant PING message"""
     message = "TYPE: PING\n" f"USER_ID: {my_info['user_id']}\n\n"
@@ -143,6 +140,7 @@ def send_broadcast(message, target_ports=None):
     ports = target_ports if target_ports else list(range(50999, 50999 + 100))
 
     try:
+        broadcast_ip = get_broadcast_ip()
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             for port in ports:
