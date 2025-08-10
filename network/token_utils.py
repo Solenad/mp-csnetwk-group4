@@ -3,6 +3,7 @@ import time
 from typing import Set
 import json
 import os
+import config
 
 REVOKED_TOKENS_FILE = "revoked_tokens.json"
 
@@ -11,9 +12,11 @@ REVOKED_TOKENS_FILE = "revoked_tokens.json"
 revoked_tokens: Set[str] = set()
 
 
-def generate_token(user_id: str, scope: str, ttl: int = 3600) -> str:
+def generate_token(user_id: str, scope: str, ttl: int = None) -> str:
     """Generate a new token with the given scope and TTL"""
-    expiry = int(time.time()) + ttl
+    expiry = int(time.time()) + (
+        ttl if ttl is not None else config.TOKEN_TTL.get(scope, 3600)
+    )
     return f"{user_id}|{expiry}|{scope}"
 
 

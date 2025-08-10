@@ -91,8 +91,15 @@ def send_profile(my_info: Dict, port=50999) -> None:
         except Exception as e:
             if verbose_mode:
                 print(f"Failed to include avatar: {e}")
+    else:
+        # Include existing avatar data if path not set but data exists
+        if "avatar_data" in my_info and "avatar_type" in my_info:
+            message += (
+                f"AVATAR_TYPE: {my_info['avatar_type']}\n"
+                "AVATAR_ENCODING: base64\n"
+                f"AVATAR_DATA: {my_info['avatar_data']}\n\n"
+            )
 
-    message += "\n\n"
     send_broadcast(message, target_ports=[port])
 
 

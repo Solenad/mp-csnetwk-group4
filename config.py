@@ -8,3 +8,4 @@ TOKEN_TTL = {
     "follow": 3600,  # FOLLOW/UNFOLLOW
 }
 followed_users = set()
+liked_posts = set()

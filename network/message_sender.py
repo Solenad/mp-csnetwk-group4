@@ -3,6 +3,7 @@ from network.peer_registry import get_peer_list, get_peer
 from network.broadcast import send_broadcast
 from network.token_utils import generate_token
 import socket
+import config
 from typing import Dict
 import time
 import secrets
@@ -181,3 +182,42 @@ def send_ack(message_id: str, recipient_user_id: str):
     except Exception as e:
         print_error(f"Failed to send ACK: {e}")
         return False
+
+
+def send_like(post_timestamp: int, sender_info: Dict, action: str = "LIKE") -> bool:
+    """Send a LIKE/UNLIKE message for a post. Returns success status."""
+    # Check if already liked/unliked
+    post_key = (sender_info["user_id"], post_timestamp)
+
+    if action == "LIKE" and post_key in config.liked_posts:
+        print_error("You've already liked this post")
+        return False
+    elif action == "UNLIKE" and post_key not in config.liked_posts:
+        print_error("You haven't liked this post yet")
+        return False
+
+    timestamp = int(time.time())
+    message_id = secrets.token_hex(4)
+    token = generate_token(
+        sender_info["user_id"], "broadcast", ttl=config.TOKEN_TTL["broadcast"]
+    )
+
+    message = (
+        "TYPE: LIKE\n"
+        f"FROM: {sender_info['user_id']}\n"
+        f"POST_TIMESTAMP: {post_timestamp}\n"
+        f"ACTION: {action}\n"
+        f"TIMESTAMP: {timestamp}\n"
+        f"MESSAGE_ID: {message_id}\n"
+        f"TOKEN: {token}\n\n"
+    )
+
+    send_broadcast(message)
+
+    # Update local state
+    if action == "LIKE":
+        config.liked_posts.add(post_key)
+    else:
+        config.liked_posts.discard(post_key)
+
+    return True
