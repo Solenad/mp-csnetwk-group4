@@ -68,6 +68,9 @@ def handle_message(message: str, addr: tuple) -> None:
             "TICTACTOE_INVITE": "game",
             "TICTACTOE_MOVE": "game",
             "TICTACTOE_RESULT": "game",
+            "TICTACTOE_STATE_REQUEST": "game",
+            "TICTACTOE_STATE_RESPONSE": "game",
+            "TICTACTOE_MOVE_REQUEST": "game",
             "LIKE": "broadcast",
             "GROUP_CREATE": "group",
             "GROUP_UPDATE": "group",
@@ -537,6 +540,66 @@ def handle_message(message: str, addr: tuple) -> None:
                     print_verbose(
                         f"\nReceived FILE_RECEIVED for unknown file ID {fileid}\n"
                     )
+        elif msg_type == "TICTACTOE_STATE_REQUEST":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: TICTACTOE_STATE_REQUEST\n"
+                    f"FROM: {content.get('FROM', '')}\n"
+                    f"TO: {content.get('TO', '')}\n"
+                    f"GAMEID: {content.get('GAMEID', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+            from network.tictactoe import send_state_response
+
+            send_state_response(content["GAMEID"], content["FROM"], my_info)
+            if "MESSAGE_ID" in content:
+                send_ack(content["MESSAGE_ID"], content["FROM"])
+
+        elif msg_type == "TICTACTOE_STATE_RESPONSE":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: TICTACTOE_STATE_RESPONSE\n"
+                    f"FROM: {content.get('FROM', '')}\n"
+                    f"TO: {content.get('TO', '')}\n"
+                    f"GAMEID: {content.get('GAMEID', '')}\n"
+                    f"BOARD: {content.get('BOARD', '')}\n"
+                    f"TURN: {content.get('TURN', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+            from network.tictactoe import handle_state_response
+
+            handle_state_response(content, addr, my_info)
+            if "MESSAGE_ID" in content:
+                send_ack(content["MESSAGE_ID"], content["FROM"])
+
+        elif msg_type == "TICTACTOE_MOVE_REQUEST":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: TICTACTOE_MOVE_REQUEST\n"
+                    f"FROM: {content.get('FROM', '')}\n"
+                    f"TO: {content.get('TO', '')}\n"
+                    f"GAMEID: {content.get('GAMEID', '')}\n"
+                    f"FROM_TURN: {content.get('FROM_TURN', '')}\n"
+                    f"TO_TURN: {content.get('TO_TURN', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+            from network.tictactoe import resend_moves
+
+            resend_moves(
+                content["GAMEID"],
+                int(content["FROM_TURN"]),
+                int(content["TO_TURN"]),
+                content["FROM"],
+                my_info,
+            )
+            if "MESSAGE_ID" in content:
+                send_ack(content["MESSAGE_ID"], content["FROM"])
 
         else:
             print_error(f"Unknown message type: {msg_type}")
@@ -560,11 +623,15 @@ if __name__ == "__main__":
         }
     )
 
+    # Initialize received_acks set if not already present
+    if not hasattr(config, "received_acks"):
+        config.received_acks = set()
+
     def limited_discovery():
         global initial_discovery
         start_time = time.time()
         while time.time() - start_time < 5:
-            send_immediate_discovery(my_info, port=port)  # Pass port here
+            send_immediate_discovery(my_info, port=port)
             time.sleep(1)
         initial_discovery = False
 
@@ -572,8 +639,18 @@ if __name__ == "__main__":
 
     def ping_loop():
         while True:
-            send_ping(my_info, port=port)  # Pass port here too
+            send_ping(my_info, port=port)
             time.sleep(300)
 
     threading.Thread(target=ping_loop, daemon=True).start()
+
+    def timeout_checker():
+        from network.tictactoe import check_timeouts
+
+        while True:
+            check_timeouts()
+            time.sleep(30)  # Check every 30 seconds
+
+    threading.Thread(target=timeout_checker, daemon=True).start()
+
     start_cli(my_info)
