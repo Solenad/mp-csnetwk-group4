@@ -302,6 +302,7 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             handle_invite(content, addr, my_info)
+            print_prompt()
 
         elif msg_type == "TICTACTOE_MOVE":
             if config.verbose_mode:
@@ -317,6 +318,7 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             handle_move(content, addr, my_info)
+            print_prompt()
 
         elif msg_type == "TICTACTOE_RESULT":
             if config.verbose_mode:
@@ -332,6 +334,7 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n\n"
                 )
             handle_result(content, addr, my_info)
+            print_prompt()
 
         elif msg_type == "GROUP_CREATE":
             if config.verbose_mode:
@@ -453,7 +456,8 @@ def handle_message(message: str, addr: tuple) -> None:
                 )
             else:
                 print(
-                    f"\n{display_name} is sending you a file '{content['FILENAME']}'. Do you accept? (Y/N)\n"
+                    f"\n{display_name} is sending you a file '{
+                        content['FILENAME']}'. Do you accept? (Y/N)\n"
                 )
             print_prompt()
 
@@ -500,7 +504,8 @@ def handle_message(message: str, addr: tuple) -> None:
 
                     if not config.verbose_mode:
                         print(
-                            f"\nFile transfer of {file_info['filename']} is complete\n"
+                            f"\nFile transfer of {
+                                file_info['filename']} is complete\n"
                         )
 
                     # Send acknowledgment
@@ -525,17 +530,20 @@ def handle_message(message: str, addr: tuple) -> None:
                 if status == "COMPLETE":
                     if config.verbose_mode:
                         print_verbose(
-                            f"\nFile {fileid} successfully received by {user_id}\n"
+                            f"\nFile {fileid} successfully received by {
+                                user_id}\n"
                         )
                     del config.active_file_transfers[fileid]
                 else:
                     print_error(
-                        f"\nFile transfer {fileid} failed with status {status}\n"
+                        f"\nFile transfer {
+                            fileid} failed with status {status}\n"
                     )
             else:
                 if config.verbose_mode:
                     print_verbose(
-                        f"\nReceived FILE_RECEIVED for unknown file ID {fileid}\n"
+                        f"\nReceived FILE_RECEIVED for unknown file ID {
+                            fileid}\n"
                     )
 
         else:

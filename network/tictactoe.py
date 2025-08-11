@@ -1,7 +1,7 @@
 # tictactoe.py
 import time
 import secrets
-from ui.utils import print_info, print_error, print_success, print_prompt
+from ui.utils import print_info, print_error, print_success
 from network.message_sender import send_unicast, send_ack
 from network.peer_registry import get_peer
 
@@ -80,9 +80,8 @@ def send_invite(recipient_id, symbol, sender_info):
 
     print_success(
         f"Invite sent to {recipient_id} for game {
-                  game_id} as {symbol}"
+            game_id} as {symbol}"
     )
-    print_prompt()
     return True
 
 
@@ -130,7 +129,6 @@ def send_move(game_id, position, sender_info):
 
     print_info(f"You played at position {position} in game {game_id}")
     print(format_board(game["board"]))
-    print_prompt()
 
     winner, line = check_winner(game["board"])
     if winner:
@@ -168,7 +166,6 @@ def send_result(game_id, result, winning_line, sender_info):
 
     send_unicast(message, (peer["ip"], int(peer["port"])))
     print_success(f"Game {game_id} ended: {result}")
-    print_prompt()
 
 
 def handle_invite(content, addr, my_info):
@@ -187,7 +184,6 @@ def handle_invite(content, addr, my_info):
     print_info(f"{from_user} is inviting you to play tic-tac-toe (Game {game_id})")
     print_info(f"You are playing as {symbol}")
     print(format_board(games[game_id]["board"]))
-    print_prompt()
 
     if "MESSAGE_ID" in content:
         send_ack(content["MESSAGE_ID"], from_user)
@@ -202,14 +198,12 @@ def handle_move(content, addr, my_info):
 
     if game_id not in games:
         print_error(f"Move for unknown game {game_id}")
-        print_prompt()
         return
 
     game = games[game_id]
     if (game_id, turn) in game["last_turn_received"]:
         if "MESSAGE_ID" in content:
             send_ack(content["MESSAGE_ID"], from_user)
-        print_prompt()
         return
 
     game["last_turn_received"].add((game_id, turn))
@@ -218,7 +212,6 @@ def handle_move(content, addr, my_info):
 
     print_info(f"Opponent played at position {position} in game {game_id}")
     print(format_board(game["board"]))
-    print_prompt()
 
     winner, line = check_winner(game["board"])
     if winner:
@@ -240,7 +233,6 @@ def handle_result(content, addr, my_info):
 
     if game_id in games:
         print(format_board(games[game_id]["board"]))
-    print_prompt()
 
     if "MESSAGE_ID" in content:
         send_ack(content["MESSAGE_ID"], content["FROM"])
