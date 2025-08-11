@@ -464,12 +464,12 @@ def cmd_group_create(args):
 
 def cmd_group_update(args):
     """Update group membership"""
-    if len(args) < 4:
-        print_error("Usage: group_update <group_id> add <member1,member2,...> | remove <member1,member2,...>")
+    if len(args) < 3:
+        print_error("Usage: group_update <group_id> <add|remove> <member1,member2,...>")
         return True
 
     group_id = args[0]
-    action = args[1]
+    action = args[1].lower()
     members = args[2].split(",")
 
     if action == "add":
@@ -531,6 +531,7 @@ command_registry = {
     "groups": cmd_groups,
     "group_create": cmd_group_create,
     "group_update": cmd_group_update,
+    "group_message": cmd_group_message,
     "help": cmd_help,
     "verbose": cmd_verbose,
     "ttt": cmd_ttt,
