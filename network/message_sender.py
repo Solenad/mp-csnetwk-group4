@@ -178,8 +178,7 @@ def send_ack(message_id: str, recipient_user_id: str):
 
     ack_message = (
         "TYPE: ACK\n"
-        f"MESSAGE_ID: {
-            message_id}\n"
+        f"MESSAGE_ID: {message_id}\n"
         "STATUS: RECEIVED\n\n"
     )
     try:

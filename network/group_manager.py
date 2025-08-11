@@ -72,8 +72,17 @@ def update_group(group_id: str, add_members: List[str], remove_members: List[str
 
     # Update local membership
     current_members = group["members"]
-    updated_members = current_members.union(add_members) - set(remove_members)
-    group["members"] = updated_members
+    
+    # Add new members
+    for member in add_members:
+        if member:  # Skip empty strings
+            current_members.add(member)
+    
+    # Remove specified members
+    for member in remove_members:
+        if member in current_members:
+            current_members.remove(member)
+
     group["last_updated"] = time.time()
 
     # Generate and send GROUP_UPDATE message to all members
@@ -93,7 +102,7 @@ def update_group(group_id: str, add_members: List[str], remove_members: List[str
     )
 
     # Send to all current members (including new ones)
-    for member in updated_members:
+    for member in current_members:
         if member == updater_info["user_id"]:
             continue  # No need to send to self
         peer = get_peer(member)
