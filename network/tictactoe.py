@@ -66,31 +66,28 @@ def send_invite(recipient_id, symbol, sender_info):
         f"TOKEN: {token}\n\n"
     )
 
-    try:
-        # Try direct send first without waiting for ACK for invites
-        if send_unicast(message, (peer["ip"], int(peer["port"]))):
-            games[game_id] = {
-                "board": [None] * 9,
-                "players": {
-                    sender_info["user_id"]: symbol,
-                    recipient_id: "O" if symbol == "X" else "X",
-                },
-                "turn": 1,
-                "symbol_map": {
-                    symbol: sender_info["user_id"],
-                    "O" if symbol == "X" else "X": recipient_id,
-                },
-                "last_turn_received": set(),
-                "last_activity": time.time(),
-            }
-            print_success(f"Invite sent to {recipient_id} for game {game_id}")
-            return True
-        else:
-            print_error("Failed to send invite")
-            return False
-    except Exception as e:
-        print_error(f"Error sending invite: {str(e)}")
-        return False
+    send_unicast(message, (peer["ip"], int(peer["port"])))
+
+    games[game_id] = {
+        "board": [None] * 9,
+        "players": {
+            sender_info["user_id"]: symbol,
+            recipient_id: "O" if symbol == "X" else "X",
+        },
+        "turn": 1,
+        "symbol_map": {
+            symbol: sender_info["user_id"],
+            "O" if symbol == "X" else "X": recipient_id,
+        },
+        "last_turn_received": set(),
+    }
+
+    print_success(
+        f"Invite sent to {recipient_id} for game {
+                  game_id} as {symbol}"
+    )
+    print_prompt()
+    return True
 
 
 def send_unicast_with_retry(
@@ -226,6 +223,7 @@ def send_result(game_id, result, winning_line, sender_info, max_retries=3):
         f"SYMBOL: {symbol}\n"
         f"WINNING_LINE: {winning_line_str}\n"
         f"TIMESTAMP: {int(time.time())}\n\n"
+        f"TOKEN: {token}\n\n"
     )
 
     if send_unicast_with_retry(
