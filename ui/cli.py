@@ -251,7 +251,7 @@ def cmd_test(args):
 
         print_info(
             f"=== TEST UNICAST ===\nTo: {
-                   recipient}\nMessage: {message}"
+                recipient}\nMessage: {message}"
         )
 
         if send_dm(recipient, message, my_info):
@@ -304,7 +304,7 @@ def cmd_like(args):
             verb = "unliked" if action == "UNLIKE" else "liked"
             print_success(
                 f"Successfully {verb} post from {
-                          time.ctime(post_timestamp)}"
+                    time.ctime(post_timestamp)}"
             )
     except ValueError:
         print_error("Invalid timestamp - must be integer")
@@ -801,7 +801,7 @@ def cmd_test(args):
 
         print_info(
             f"=== TEST UNICAST ===\nTo: {
-                   recipient}\nMessage: {message}"
+                recipient}\nMessage: {message}"
         )
 
         if send_dm(recipient, message, my_info):
@@ -854,7 +854,7 @@ def cmd_like(args):
             verb = "unliked" if action == "UNLIKE" else "liked"
             print_success(
                 f"Successfully {verb} post from {
-                          time.ctime(post_timestamp)}"
+                    time.ctime(post_timestamp)}"
             )
     except ValueError:
         print_error("Invalid timestamp - must be integer")
@@ -1039,7 +1039,7 @@ def cmd_group_update(args):
         return True
 
     group_id = args[0]
-    action = args[1]
+    action = args[1].lower()
     members = args[2].split(",")
 
     if action == "add":
