@@ -196,12 +196,34 @@ def cmd_verbose(args):
 
 def cmd_ttt(args):
     if not args:
-        print_error("Usage: ttt <invite|move> ...")
+        print_error("Usage: ttt invite <username> <X|O> | ttt move <game_id> <pos>")
         return True
 
-    if args[0] == "invite" and len(args) == 3:
-        _, username, symbol = args
-        send_invite(username, symbol.upper(), my_info)
+    if args[0] == "invite":
+        if len(args) < 3:
+            print_error("Usage: ttt invite <username> <X|O>")
+            return True
+
+        username = args[1]
+        symbol = args[2].upper()
+
+        if symbol not in ["X", "O"]:
+            print_error("Symbol must be either X or O")
+            return True
+
+        # Check if peer exists
+        peer = get_peer(username)
+        if not peer:
+            print_error(
+                f"Peer {username} not found. Try 'peers' to see available players."
+            )
+            return True
+
+        if send_invite(username, symbol, my_info):
+            print_success(f"Invite sent to {username}")
+        else:
+            print_error("Failed to send invite")
+
     elif args[0] == "move" and len(args) == 3:
         _, game_id, pos = args
         send_move(game_id, int(pos), my_info)
@@ -251,7 +273,7 @@ def cmd_test(args):
 
         print_info(
             f"=== TEST UNICAST ===\nTo: {
-                   recipient}\nMessage: {message}"
+                recipient}\nMessage: {message}"
         )
 
         if send_dm(recipient, message, my_info):
@@ -304,7 +326,7 @@ def cmd_like(args):
             verb = "unliked" if action == "UNLIKE" else "liked"
             print_success(
                 f"Successfully {verb} post from {
-                          time.ctime(post_timestamp)}"
+                    time.ctime(post_timestamp)}"
             )
     except ValueError:
         print_error("Invalid timestamp - must be integer")
@@ -801,7 +823,7 @@ def cmd_test(args):
 
         print_info(
             f"=== TEST UNICAST ===\nTo: {
-                   recipient}\nMessage: {message}"
+                recipient}\nMessage: {message}"
         )
 
         if send_dm(recipient, message, my_info):
@@ -854,7 +876,7 @@ def cmd_like(args):
             verb = "unliked" if action == "UNLIKE" else "liked"
             print_success(
                 f"Successfully {verb} post from {
-                          time.ctime(post_timestamp)}"
+                    time.ctime(post_timestamp)}"
             )
     except ValueError:
         print_error("Invalid timestamp - must be integer")

@@ -108,7 +108,8 @@ def send_follow(user_id_to_follow, sender_info):
             peer_ip = peer["ip"]
 
             print_verbose(
-                f"Sending FOLLOW to {peer_ip}:{peer_port} for {peer['user_id']}"
+                f"Sending FOLLOW to {peer_ip}:{
+                    peer_port} for {peer['user_id']}"
             )
             return send_unicast(message, (peer_ip, peer_port))
     print_error(f"User {user_id_to_follow} not found")
@@ -142,7 +143,8 @@ def send_unfollow(user_id_to_unfollow, sender_info):
             peer_ip = peer["ip"]
 
             print_verbose(
-                f"Sending UNFOLLOW to {peer_ip}:{peer_port} for {peer['user_id']}"
+                f"Sending UNFOLLOW to {peer_ip}:{
+                    peer_port} for {peer['user_id']}"
             )
             return send_unicast(message, (peer_ip, peer_port))
     print_error(f"User {user_id_to_unfollow} not found")
@@ -150,6 +152,7 @@ def send_unfollow(user_id_to_unfollow, sender_info):
 
 
 def send_ack(message_id: str, recipient_user_id: str):
+    config.received_acks.add(message_id)
     peer = get_peer(recipient_user_id)
     if not peer:
         try:
@@ -159,7 +162,8 @@ def send_ack(message_id: str, recipient_user_id: str):
             port = int(port.strip())
         except Exception:
             print_error(
-                f"Cannot send ACK — invalid user ID format: {recipient_user_id}"
+                f"Cannot send ACK — invalid user ID format: {
+                    recipient_user_id}"
             )
             return False
     else:
