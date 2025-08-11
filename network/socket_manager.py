@@ -36,6 +36,10 @@ def start_listening(callback):
             except AttributeError:
                 pass  # Not available on all platforms
 
+            if is_port_in_use(port):
+                print(f"Port {port} in use, trying next...")
+                port += 1
+                continue
             # Bind to all interfaces for LAN/Docker
             sock.bind(("0.0.0.0", port))
 
@@ -48,7 +52,8 @@ def start_listening(callback):
                 sock.close()
             if attempt == MAX_PORT_ATTEMPTS - 1:
                 print(
-                    f"Error: Could not bind to port after {MAX_PORT_ATTEMPTS} attempts"
+                    f"Error: Could not bind to port after {
+                        MAX_PORT_ATTEMPTS} attempts"
                 )
                 return None, None
 

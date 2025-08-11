@@ -26,7 +26,7 @@ from ui.image_display import display_image
 from network.group_manager import (
     handle_group_create,
     handle_group_update,
-    handle_group_message
+    handle_group_message,
 )
 
 PROFILE_RESEND_INTERVAL = 10
@@ -68,6 +68,9 @@ def handle_message(message: str, addr: tuple) -> None:
             "TICTACTOE_INVITE": "game",
             "TICTACTOE_MOVE": "game",
             "TICTACTOE_RESULT": "game",
+            "TICTACTOE_STATE_REQUEST": "game",
+            "TICTACTOE_STATE_RESPONSE": "game",
+            "TICTACTOE_MOVE_REQUEST": "game",
             "LIKE": "broadcast",
             "GROUP_CREATE": "group",
             "GROUP_UPDATE": "group",
@@ -84,7 +87,6 @@ def handle_message(message: str, addr: tuple) -> None:
         token = content.get("TOKEN", "")
 
         if not user_id:
-            print_error("Invalid message: missing USER_ID/FROM field")
             return
 
         if user_id == my_info["user_id"]:
@@ -115,7 +117,8 @@ def handle_message(message: str, addr: tuple) -> None:
                         elif int(parts[1]) < time.time():
                             reason = "Token expired"
                         elif parts[2] != expected_scope:
-                            reason = f"Scope mismatch (expected {expected_scope})"
+                            reason = f"Scope mismatch (expected {
+                                expected_scope})"
                     except (ValueError, IndexError):
                         reason = "Invalid token structure"
 
@@ -137,7 +140,8 @@ def handle_message(message: str, addr: tuple) -> None:
                     try:
                         token_ip = token.split("|")[0].split("@")[1].split(":")[0]
                         print_verbose(
-                            f"IP MISMATCH: Token claims {token_ip} but came from {addr[0]}\n"
+                            f"IP MISMATCH: Token claims {
+                                token_ip} but came from {addr[0]}\n"
                         )
                     except (IndexError, AttributeError):
                         print_verbose("Invalid token format for IP verification\n")
@@ -167,7 +171,8 @@ def handle_message(message: str, addr: tuple) -> None:
                         f"TTL: {content.get('TTL', '')}\n"
                         f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
                         f"TOKEN: {content.get('TOKEN', '')}\n"
-                        f"TIMESTAMP: {content.get('TIMESTAMP', time.time())}\n\n"
+                        f"TIMESTAMP: {content.get(
+                            'TIMESTAMP', time.time())}\n\n"
                     )
                 else:
                     print(f"\n{display_name}: {content.get('CONTENT', '')}\n")
@@ -191,7 +196,8 @@ def handle_message(message: str, addr: tuple) -> None:
                 )
             else:
                 print(
-                    f"\n[DM from {display_name}]: {content.get('CONTENT', '')}\n"
+                    f"\n[DM from {display_name}]: {
+                        content.get('CONTENT', '')}\n"
                 )
             print_prompt()
             if content.get("MESSAGE_ID"):
@@ -329,7 +335,7 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n\n"
                 )
             handle_result(content, addr, my_info)
-        
+
         elif msg_type == "GROUP_CREATE":
             if config.verbose_mode:
                 print_verbose(
@@ -399,11 +405,13 @@ def handle_message(message: str, addr: tuple) -> None:
             else:
                 if action == "LIKE":
                     print(
-                        f"\n{display_name} liked your post from {time.ctime(int(post_timestamp))}\n"
+                        f"\n{display_name} liked your post from {
+                            time.ctime(int(post_timestamp))}\n"
                     )
                 else:
                     print(
-                        f"\n{display_name} unliked your post from {time.ctime(int(post_timestamp))}\n"
+                        f"\n{display_name} unliked your post from {
+                            time.ctime(int(post_timestamp))}\n"
                     )
             print_prompt()
 
@@ -532,6 +540,66 @@ def handle_message(message: str, addr: tuple) -> None:
                     print_verbose(
                         f"\nReceived FILE_RECEIVED for unknown file ID {fileid}\n"
                     )
+        elif msg_type == "TICTACTOE_STATE_REQUEST":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: TICTACTOE_STATE_REQUEST\n"
+                    f"FROM: {content.get('FROM', '')}\n"
+                    f"TO: {content.get('TO', '')}\n"
+                    f"GAMEID: {content.get('GAMEID', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+            from network.tictactoe import send_state_response
+
+            send_state_response(content["GAMEID"], content["FROM"], my_info)
+            if "MESSAGE_ID" in content:
+                send_ack(content["MESSAGE_ID"], content["FROM"])
+
+        elif msg_type == "TICTACTOE_STATE_RESPONSE":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: TICTACTOE_STATE_RESPONSE\n"
+                    f"FROM: {content.get('FROM', '')}\n"
+                    f"TO: {content.get('TO', '')}\n"
+                    f"GAMEID: {content.get('GAMEID', '')}\n"
+                    f"BOARD: {content.get('BOARD', '')}\n"
+                    f"TURN: {content.get('TURN', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+            from network.tictactoe import handle_state_response
+
+            handle_state_response(content, addr, my_info)
+            if "MESSAGE_ID" in content:
+                send_ack(content["MESSAGE_ID"], content["FROM"])
+
+        elif msg_type == "TICTACTOE_MOVE_REQUEST":
+            if config.verbose_mode:
+                print_verbose(
+                    f"\nTYPE: TICTACTOE_MOVE_REQUEST\n"
+                    f"FROM: {content.get('FROM', '')}\n"
+                    f"TO: {content.get('TO', '')}\n"
+                    f"GAMEID: {content.get('GAMEID', '')}\n"
+                    f"FROM_TURN: {content.get('FROM_TURN', '')}\n"
+                    f"TO_TURN: {content.get('TO_TURN', '')}\n"
+                    f"MESSAGE_ID: {content.get('MESSAGE_ID', '')}\n"
+                    f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n"
+                    f"TOKEN: {content.get('TOKEN', '')}\n\n"
+                )
+            from network.tictactoe import resend_moves
+
+            resend_moves(
+                content["GAMEID"],
+                int(content["FROM_TURN"]),
+                int(content["TO_TURN"]),
+                content["FROM"],
+                my_info,
+            )
+            if "MESSAGE_ID" in content:
+                send_ack(content["MESSAGE_ID"], content["FROM"])
 
         else:
             print_error(f"Unknown message type: {msg_type}")
@@ -555,11 +623,15 @@ if __name__ == "__main__":
         }
     )
 
+    # Initialize received_acks set if not already present
+    if not hasattr(config, "received_acks"):
+        config.received_acks = set()
+
     def limited_discovery():
         global initial_discovery
         start_time = time.time()
         while time.time() - start_time < 5:
-            send_immediate_discovery(my_info, port=port)  # Pass port here
+            send_immediate_discovery(my_info, port=port)
             time.sleep(1)
         initial_discovery = False
 
@@ -567,8 +639,18 @@ if __name__ == "__main__":
 
     def ping_loop():
         while True:
-            send_ping(my_info, port=port)  # Pass port here too
+            send_ping(my_info, port=port)
             time.sleep(300)
 
     threading.Thread(target=ping_loop, daemon=True).start()
+
+    def timeout_checker():
+        from network.tictactoe import check_timeouts
+
+        while True:
+            check_timeouts()
+            time.sleep(30)  # Check every 30 seconds
+
+    threading.Thread(target=timeout_checker, daemon=True).start()
+
     start_cli(my_info)
