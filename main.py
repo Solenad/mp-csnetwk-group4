@@ -303,6 +303,7 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             handle_invite(content, addr, my_info)
+            print_prompt()
 
         elif msg_type == "TICTACTOE_MOVE":
             if config.verbose_mode:
@@ -318,6 +319,7 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TOKEN: {content.get('TOKEN', '')}\n\n"
                 )
             handle_move(content, addr, my_info)
+            print_prompt()
 
         elif msg_type == "TICTACTOE_RESULT":
             if config.verbose_mode:
@@ -333,6 +335,7 @@ def handle_message(message: str, addr: tuple) -> None:
                     f"TIMESTAMP: {content.get('TIMESTAMP', '')}\n\n"
                 )
             handle_result(content, addr, my_info)
+            print_prompt()
 
         elif msg_type == "GROUP_CREATE":
             if config.verbose_mode:
