@@ -125,7 +125,7 @@ def send_unicast_with_retry(
 
 def send_move(game_id, position, sender_info, max_retries=3):
     if game_id not in games:
-        print_error("Unknown game ID.")
+        print_error("Unknown game ID. Type 'peers' to see active games.")
         return False
 
     game = games[game_id]
@@ -138,15 +138,19 @@ def send_move(game_id, position, sender_info, max_retries=3):
         print_error("Position already taken.")
         return False
 
+    # Make the move locally first
     game["board"][position] = symbol
-    turn = game["turn"]
+    current_turn = game["turn"]
     game["turn"] += 1
     game["last_activity"] = time.time()
 
     peer_id = [p for p in game["players"] if p != sender_info["user_id"]][0]
     peer = get_peer(peer_id)
     if not peer:
-        print_error(f"Unknown peer {peer_id}")
+        print_error(f"Peer {peer_id} not found. They may have disconnected.")
+        # Revert the move if peer is gone
+        game["board"][position] = None
+        game["turn"] -= 1
         return False
 
     message_id = secrets.token_hex(4)
@@ -160,28 +164,40 @@ def send_move(game_id, position, sender_info, max_retries=3):
         f"MESSAGE_ID: {message_id}\n"
         f"POSITION: {position}\n"
         f"SYMBOL: {symbol}\n"
-        f"TURN: {turn}\n"
+        f"TURN: {current_turn}\n"
         f"TOKEN: {token}\n\n"
     )
 
-    if not send_unicast_with_retry(
-        message, (peer["ip"], int(peer["port"])), message_id, peer_id, max_retries
-    ):
-        # Revert the move if we couldn't confirm it was received
+    # Track pending moves for retransmission
+    if not hasattr(config, "pending_moves"):
+        config.pending_moves = {}
+
+    config.pending_moves[message_id] = {
+        "game_id": game_id,
+        "position": position,
+        "turn": current_turn,
+        "recipient": peer_id,
+        "retries": 0,
+        "timestamp": time.time(),
+    }
+
+    # Send the move
+    if send_unicast(message, (peer["ip"], int(peer["port"]))):
+        print_success(f"You played at position {position}")
+        print(format_board(game["board"]))
+
+        winner, line = check_winner(game["board"])
+        if winner:
+            send_result(game_id, winner, line, sender_info)
+        return True
+    else:
+        print_error("Failed to send move")
+        # Revert the move if we couldn't send it
         game["board"][position] = None
         game["turn"] -= 1
         return False
 
-    print_info(f"You played at position {position} in game {game_id}")
-    print(format_board(game["board"]))
-    print_prompt()
-
-    winner, line = check_winner(game["board"])
-    if winner:
-        send_result(game_id, winner, line, sender_info)
-
     return True
-
 
 def send_result(game_id, result, winning_line, sender_info, max_retries=3):
     if game_id not in games:
@@ -248,48 +264,48 @@ def handle_invite(content, addr, my_info):
 
 def handle_move(content, addr, my_info):
     game_id = content["GAMEID"]
+    if game_id not in games:
+        print_error(f"Move for unknown game {game_id}")
+        print_info("Type 'peers' to see active games or wait for an invite")
+        return
+
+    game = games[game_id]
     turn = int(content["TURN"])
     position = int(content["POSITION"])
     symbol = content["SYMBOL"]
     from_user = content["FROM"]
 
-    if game_id not in games:
-        print_error(f"Move for unknown game {game_id}")
-        print_prompt()
-        # Send state request if we don't know about this game
-        send_state_request(game_id, from_user, my_info)
-        return
-
-    game = games[game_id]
-    game["last_activity"] = time.time()
-
-    # Check if we're missing any previous moves
+    # Verify it's the expected turn
     expected_turn = game["turn"]
-    if turn > expected_turn:
-        print_info(
-            f"Missing moves detected (expected turn {
+    if turn < expected_turn:
+        print_info(f"Ignoring duplicate move for turn {turn}")
+        return
+    elif turn > expected_turn:
+        print_error(
+            f"Missing previous moves (expected {
                 expected_turn}, got {turn})"
         )
-        request_missing_moves(game_id, expected_turn, turn - 1, from_user, my_info)
-        return
-    elif turn < expected_turn:
-        # Already processed this move
-        if "MESSAGE_ID" in content:
-            send_ack(content["MESSAGE_ID"], from_user)
-        print_prompt()
         return
 
-    game["last_turn_received"].add((game_id, turn))
+    # Update the game state
     game["board"][position] = symbol
-    game["turn"] = turn + 1
+    game["turn"] += 1
+    game["last_activity"] = time.time()
 
-    print_info(f"Opponent played at position {position} in game {game_id}")
+    print_success(f"\nOpponent played {symbol} at position {position}")
     print(format_board(game["board"]))
-    print_prompt()
 
+    # Check for winner after each move
     winner, line = check_winner(game["board"])
     if winner:
-        send_result(game_id, winner, line, my_info)
+        if winner == "DRAW":
+            print_success("\nGame ended in a draw!")
+        else:
+            print_success(f"\nGame over! {winner} wins!")
+        print(format_board(game["board"]))
+        del games[game_id]
+
+    print_prompt()
 
     if "MESSAGE_ID" in content:
         send_ack(content["MESSAGE_ID"], from_user)
