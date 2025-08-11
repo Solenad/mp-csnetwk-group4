@@ -1061,7 +1061,7 @@ def cmd_group_update(args):
         return True
 
     group_id = args[0]
-    action = args[1]
+    action = args[1].lower()
     members = args[2].split(",")
 
     if action == "add":
