@@ -197,6 +197,7 @@ def send_move(game_id, position, sender_info, max_retries=3):
         game["turn"] -= 1
         return False
 
+    return True
 
 def send_result(game_id, result, winning_line, sender_info, max_retries=3):
     if game_id not in games:
