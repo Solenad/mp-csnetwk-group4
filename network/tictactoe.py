@@ -2,7 +2,7 @@
 import time
 import config
 import secrets
-from ui.utils import print_info, print_error, print_success, print_prompt
+from ui.utils import print_info, print_error, print_success
 from network.message_sender import send_unicast, send_ack
 from network.peer_registry import get_peer
 
@@ -84,9 +84,8 @@ def send_invite(recipient_id, symbol, sender_info):
 
     print_success(
         f"Invite sent to {recipient_id} for game {
-                  game_id} as {symbol}"
+            game_id} as {symbol}"
     )
-    print_prompt()
     return True
 
 
@@ -169,14 +168,8 @@ def send_move(game_id, position, sender_info, max_retries=3):
     if not hasattr(config, "pending_moves"):
         config.pending_moves = {}
 
-    config.pending_moves[message_id] = {
-        "game_id": game_id,
-        "position": position,
-        "turn": current_turn,
-        "recipient": peer_id,
-        "retries": 0,
-        "timestamp": time.time(),
-    }
+    print_info(f"You played at position {position} in game {game_id}")
+    print(format_board(game["board"]))
 
     # Send the move
     if send_unicast(message, (peer["ip"], int(peer["port"]))):
@@ -195,6 +188,7 @@ def send_move(game_id, position, sender_info, max_retries=3):
         return False
 
     return True
+
 
 def send_result(game_id, result, winning_line, sender_info, max_retries=3):
     if game_id not in games:
@@ -226,14 +220,8 @@ def send_result(game_id, result, winning_line, sender_info, max_retries=3):
         f"TOKEN: {token}\n\n"
     )
 
-    if send_unicast_with_retry(
-        message, (peer["ip"], int(peer["port"])), message_id, peer_id, max_retries
-    ):
-        print_success(f"Game {game_id} ended: {result}")
-        print_prompt()
-        # Clean up game after result is acknowledged
-        if game_id in games:
-            del games[game_id]
+    send_unicast(message, (peer["ip"], int(peer["port"])))
+    print_success(f"Game {game_id} ended: {result}")
 
 
 def handle_invite(content, addr, my_info):
@@ -253,7 +241,6 @@ def handle_invite(content, addr, my_info):
     print_success(f"\n{from_user} is inviting you to play Tic-Tac-Toe (Game {game_id})")
     print_info(f"You are playing as {symbol}")
     print(format_board(games[game_id]["board"]))
-    print_prompt()
 
     # Always send ACK for invites
     if "MESSAGE_ID" in content:
@@ -273,19 +260,17 @@ def handle_move(content, addr, my_info):
     symbol = content["SYMBOL"]
     from_user = content["FROM"]
 
-    # Verify it's the expected turn
-    expected_turn = game["turn"]
-    if turn < expected_turn:
-        print_info(f"Ignoring duplicate move for turn {turn}")
-        return
-    elif turn > expected_turn:
-        print_error(
-            f"Missing previous moves (expected {
-                expected_turn}, got {turn})"
-        )
+    if game_id not in games:
+        print_error(f"Move for unknown game {game_id}")
+    return
+
+    game = games[game_id]
+    if (game_id, turn) in game["last_turn_received"]:
+        if "MESSAGE_ID" in content:
+            send_ack(content["MESSAGE_ID"], from_user)
         return
 
-    # Update the game state
+    game["last_turn_received"].add((game_id, turn))
     game["board"][position] = symbol
     game["turn"] += 1
     game["last_activity"] = time.time()
@@ -300,10 +285,8 @@ def handle_move(content, addr, my_info):
             print_success("\nGame ended in a draw!")
         else:
             print_success(f"\nGame over! {winner} wins!")
-        print(format_board(game["board"]))
-        del games[game_id]
-
-    print_prompt()
+            print(format_board(game["board"]))
+            del games[game_id]
 
     if "MESSAGE_ID" in content:
         send_ack(content["MESSAGE_ID"], from_user)
@@ -321,8 +304,6 @@ def handle_result(content, addr, my_info):
 
     if game_id in games:
         print(format_board(games[game_id]["board"]))
-        del games[game_id]  # Clean up completed game
-    print_prompt()
 
     if "MESSAGE_ID" in content:
         send_ack(content["MESSAGE_ID"], content["FROM"])
