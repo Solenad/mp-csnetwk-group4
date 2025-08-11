@@ -84,7 +84,6 @@ def handle_message(message: str, addr: tuple) -> None:
         token = content.get("TOKEN", "")
 
         if not user_id:
-            print_error("Invalid message: missing USER_ID/FROM field")
             return
 
         if user_id == my_info["user_id"]:
