@@ -78,7 +78,10 @@ def send_invite(recipient_id, symbol, sender_info):
         "last_turn_received": set(),
     }
 
-    print_success(f"Invite sent to {recipient_id} for game {game_id} as {symbol}")
+    print_success(
+        f"Invite sent to {recipient_id} for game {
+                  game_id} as {symbol}"
+    )
     print_prompt()
     return True
 
@@ -160,6 +163,7 @@ def send_result(game_id, result, winning_line, sender_info):
         f"SYMBOL: {symbol}\n"
         f"WINNING_LINE: {winning_line_str}\n"
         f"TIMESTAMP: {int(time.time())}\n\n"
+        f"TOKEN: {token}\n\n"
     )
 
     send_unicast(message, (peer["ip"], int(peer["port"])))
@@ -222,18 +226,6 @@ def handle_move(content, addr, my_info):
 
     if "MESSAGE_ID" in content:
         send_ack(content["MESSAGE_ID"], from_user)
-
-    for attempt in range(retry_count):
-        send_unicast(message, (peer["ip"], int(peer["port"])))
-
-        # Wait for ACK with timeout
-        ack_received = wait_for_ack(message_id, timeout=2)
-        if ack_received:
-            break
-
-        if attempt == retry_count - 1:
-            print_error("Move failed to reach opponent after multiple attempts")
-            return False
 
 
 def handle_result(content, addr, my_info):
