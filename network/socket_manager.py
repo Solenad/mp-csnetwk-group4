@@ -51,10 +51,7 @@ def start_listening(callback):
             if sock:
                 sock.close()
             if attempt == MAX_PORT_ATTEMPTS - 1:
-                print(
-                    f"Error: Could not bind to port after {
-                        MAX_PORT_ATTEMPTS} attempts"
-                )
+                print(f"Error: Could not bind to port after {MAX_PORT_ATTEMPTS} attempts")
                 return None, None
 
     def listen():
