@@ -125,8 +125,7 @@ def cmd_send(args):
                 from network.broadcast import get_subnet_broadcast
 
                 print(
-                    f"[hello] Sending PROFILE broadcast to {
-                        get_subnet_broadcast()}:50999"
+                    f"[hello] Sending PROFILE broadcast to {get_subnet_broadcast()}:50999"
                 )
             send_profile(my_info)
             print_success("Profile broadcast sent to network")
@@ -250,8 +249,7 @@ def cmd_test(args):
         message = " ".join(args[2:])
 
         print_info(
-            f"=== TEST UNICAST ===\nTo: {
-                recipient}\nMessage: {message}"
+            f"=== TEST UNICAST ===\nTo: {recipient}\nMessage: {message}"
         )
 
         if send_dm(recipient, message, my_info):
@@ -303,8 +301,7 @@ def cmd_like(args):
         if send_like(post_timestamp, my_info, action):
             verb = "unliked" if action == "UNLIKE" else "liked"
             print_success(
-                f"Successfully {verb} post from {
-                    time.ctime(post_timestamp)}"
+                f"Successfully {verb} post from {time.ctime(post_timestamp)}"
             )
     except ValueError:
         print_error("Invalid timestamp - must be integer")
@@ -327,8 +324,7 @@ def cmd_set_avatar(args):
             my_info["avatar_data"] = base64.b64encode(f.read()).decode("utf-8")
             my_info["avatar_type"] = get_mime_type(avatar_path)
         print_success(
-            f"Avatar set from {
-                avatar_path}. Send 'hello' to update your profile."
+            f"Avatar set from {avatar_path}. Send 'hello' to update your profile."
         )
     except Exception as e:
         print_error(f"Failed to load avatar: {e}")
@@ -680,8 +676,7 @@ def cmd_send(args):
                 from network.broadcast import get_subnet_broadcast
 
                 print(
-                    f"[hello] Sending PROFILE broadcast to {
-                        get_subnet_broadcast()}:50999"
+                    f"[hello] Sending PROFILE broadcast to {get_subnet_broadcast()}:50999"
                 )
             send_profile(my_info)
             print_success("Profile broadcast sent to network")
@@ -800,8 +795,7 @@ def cmd_test(args):
         message = " ".join(args[2:])
 
         print_info(
-            f"=== TEST UNICAST ===\nTo: {
-                recipient}\nMessage: {message}"
+            f"=== TEST UNICAST ===\nTo: {recipient}\nMessage: {message}"
         )
 
         if send_dm(recipient, message, my_info):
@@ -853,8 +847,7 @@ def cmd_like(args):
         if send_like(post_timestamp, my_info, action):
             verb = "unliked" if action == "UNLIKE" else "liked"
             print_success(
-                f"Successfully {verb} post from {
-                    time.ctime(post_timestamp)}"
+                f"Successfully {verb} post from {time.ctime(post_timestamp)}"
             )
     except ValueError:
         print_error("Invalid timestamp - must be integer")
@@ -877,8 +870,7 @@ def cmd_set_avatar(args):
             my_info["avatar_data"] = base64.b64encode(f.read()).decode("utf-8")
             my_info["avatar_type"] = get_mime_type(avatar_path)
         print_success(
-            f"Avatar set from {
-                avatar_path}. Send 'hello' to update your profile."
+            f"Avatar set from {avatar_path}. Send 'hello' to update your profile."
         )
     except Exception as e:
         print_error(f"Failed to load avatar: {e}")

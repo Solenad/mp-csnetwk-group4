@@ -83,8 +83,7 @@ def send_invite(recipient_id, symbol, sender_info):
     }
 
     print_success(
-        f"Invite sent to {recipient_id} for game {
-                  game_id} as {symbol}"
+        f"Invite sent to {recipient_id} for game {game_id} as {symbol}"
     )
     print_prompt()
     return True
@@ -105,15 +104,13 @@ def send_unicast_with_retry(
 
             if attempt == max_retries - 1:
                 print_error(
-                    f"Failed to get ACK from {
-                        recipient_id} after {max_retries} attempts"
+                    f"Failed to get ACK from {recipient_id} after {max_retries} attempts"
                 )
                 return False
         else:
             if attempt == max_retries - 1:
                 print_error(
-                    f"Failed to send message to {
-                        recipient_id} after {max_retries} attempts"
+                    f"Failed to send message to {recipient_id} after {max_retries} attempts"
                 )
                 return False
         time.sleep(1)  # Wait before retrying
@@ -280,8 +277,7 @@ def handle_move(content, addr, my_info):
         return
     elif turn > expected_turn:
         print_error(
-            f"Missing previous moves (expected {
-                expected_turn}, got {turn})"
+            f"Missing previous moves (expected {expected_turn}, got {turn})"
         )
         return
 
